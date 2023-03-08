@@ -1,6 +1,6 @@
-use crate::{trade_fetching::parsing::FillEventLog, utils::Config};
+use crate::{trade_fetching::parsing::OpenBookFillEventLog, utils::Config};
 use database::database::{connect_to_database, setup_database};
-use std::{fs::File, io::Read};
+use dotenv;
 use tokio::sync::mpsc;
 
 mod database;
@@ -9,11 +9,16 @@ mod utils;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let config: Config = {
-        let mut file = File::open("./example-config.toml")?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        toml::from_str(&contents).unwrap()
+    dotenv::dotenv().ok();
+
+    let rpc_url: String = dotenv::var("RPC_URL").unwrap();
+    let database_url: String = dotenv::var("DATABASE_URL").unwrap();
+
+    let config = Config {
+        rpc_url,
+        database_url,
+        max_pg_pool_connections: 5,
+        markets: utils::load_markets("/Users/dboures/dev/openbook-candles/markets.json"),
     };
 
     println!("{:?}", config);
@@ -21,16 +26,20 @@ async fn main() -> anyhow::Result<()> {
     let pool = connect_to_database(&config).await?;
     setup_database(&pool).await?;
 
-    let (fill_event_sender, mut fill_event_receiver) = mpsc::channel::<FillEventLog>(1000);
+    let (fill_sender, fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
 
     // spawn a thread for each market?
     // what are the memory implications?
 
+    // tokio::spawn(async move {
+    //     trade_fetching::scrape::scrape(&config, fill_event_sender.clone()).await;
+    // });
+
     tokio::spawn(async move {
-        trade_fetching::scrape::scrape(&config, fill_event_sender).await;
+        trade_fetching::scrape::scrape(&config, fill_sender.clone()).await;
     });
 
-    database::database::handle_fill_events(&pool, fill_event_receiver).await;
+    database::database::handle_fill_events(&pool, fill_receiver).await;
 
     // trade_fetching::websocket::listen_logs().await?;
     Ok(())

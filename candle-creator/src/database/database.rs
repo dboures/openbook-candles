@@ -3,26 +3,23 @@ use sqlx::{
     postgres::{PgPoolOptions, PgQueryResult},
     Executor, Pool, Postgres,
 };
-use std::{time::{Duration, Instant}, collections::hash_map::DefaultHasher, hash::{Hash, Hasher}};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+    time::{Duration, Instant},
+};
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 use crate::{
-    trade_fetching::parsing::FillEventLog,
+    trade_fetching::parsing::OpenBookFillEventLog,
     utils::{AnyhowWrap, Config},
 };
 
 pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool<Postgres>> {
-    // let conn_str = std::env::var("POSTGRES_CONN_STRING")
-    //     .expect("POSTGRES_CONN_STRING environment variable must be set!");
-
-    // let config_str =
-    //     format!("host=0.0.0.0 port=5432 password={password} user=postgres dbname=postgres");
-    let db_config = &config.database_config;
-
     loop {
         let pool = PgPoolOptions::new()
-            .max_connections(db_config.max_pg_pool_connections)
-            .connect(&db_config.connection_string)
+            .max_connections(config.max_pg_pool_connections)
+            .connect(&config.database_url)
             .await;
         if pool.is_ok() {
             println!("Database connected");
@@ -118,15 +115,16 @@ pub async fn save_candles() {
 
 pub async fn handle_fill_events(
     pool: &Pool<Postgres>,
-    mut fill_event_receiver: Receiver<FillEventLog>,
+    mut fill_receiver: Receiver<OpenBookFillEventLog>,
 ) {
     loop {
         let start = Instant::now();
         let mut write_batch = Vec::new();
         while write_batch.len() < 10 || start.elapsed().as_secs() > 10 {
-            match fill_event_receiver.try_recv() {
+            match fill_receiver.try_recv() {
                 Ok(event) => {
                     if !write_batch.contains(&event) {
+                        // O(n)
                         write_batch.push(event)
                     }
                 }
@@ -149,7 +147,7 @@ pub async fn handle_fill_events(
     }
 }
 
-fn build_fills_upsert_statement(events: Vec<FillEventLog>) -> String {
+fn build_fills_upsert_statement(events: Vec<OpenBookFillEventLog>) -> String {
     let mut stmt = String::from("INSERT INTO fills (id, time, market, open_orders, open_orders_owner, bid, maker, native_qty_paid, native_qty_received, native_fee_or_rebate, fee_tier, order_id, client_order_id, referrer_rebate) VALUES");
     for (idx, event) in events.iter().enumerate() {
         let mut hasher = DefaultHasher::new();
@@ -190,13 +188,13 @@ fn build_fills_upsert_statement(events: Vec<FillEventLog>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-    use solana_sdk::pubkey::Pubkey;
     use super::*;
+    use solana_sdk::pubkey::Pubkey;
+    use std::str::FromStr;
 
     #[test]
     fn test_event_hashing() {
-        let event_1 = FillEventLog {
+        let event_1 = OpenBookFillEventLog {
             market: Pubkey::from_str("8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6").unwrap(),
             open_orders: Pubkey::from_str("CKo9nGfgekYYfjHw4K22qMAtVeqBXET3pSGm8k5DSJi7").unwrap(),
             open_orders_owner: Pubkey::from_str("JCNCMFXo5M5qwUPg2Utu1u6YWp3MbygxqBsBeXXJfrw")
@@ -213,7 +211,7 @@ mod tests {
             referrer_rebate: Some(841),
         };
 
-        let event_2 = FillEventLog {
+        let event_2 = OpenBookFillEventLog {
             market: Pubkey::from_str("8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6").unwrap(),
             open_orders: Pubkey::from_str("CKo9nGfgekYYfjHw4K22qMAtVeqBXET3pSGm8k5DSJi7").unwrap(),
             open_orders_owner: Pubkey::from_str("JCNCMFXo5M5qwUPg2Utu1u6YWp3MbygxqBsBeXXJfrw")

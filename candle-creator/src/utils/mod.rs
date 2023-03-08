@@ -1,4 +1,5 @@
 use serde_derive::Deserialize;
+use std::{fs::File, io::Read};
 
 pub trait AnyhowWrap {
     type Value;
@@ -14,20 +15,19 @@ impl<T, E: std::fmt::Debug> AnyhowWrap for Result<T, E> {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
-    pub rpc_ws_url: String,
-    pub rpc_http_url: String,
-    pub database_config: DatabaseConfig,
-    pub markets: Vec<MarketConfig>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct DatabaseConfig {
-    pub connection_string: String,
+    pub rpc_url: String,
+    pub database_url: String,
     pub max_pg_pool_connections: u32,
+    pub markets: Vec<MarketConfig>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct MarketConfig {
     pub name: String,
     pub market: String,
+}
+
+pub fn load_markets(path: &str) -> Vec<MarketConfig> {
+    let reader = File::open(path).unwrap();
+    serde_json::from_reader(reader).unwrap()
 }

@@ -11,7 +11,7 @@ const PROGRAM_DATA: &str = "Program data: ";
 
 #[event]
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct FillEventLog {
+pub struct OpenBookFillEventLog {
     pub market: Pubkey,
     pub open_orders: Pubkey,
     pub open_orders_owner: Pubkey,
@@ -27,37 +27,34 @@ pub struct FillEventLog {
     pub referrer_rebate: Option<u64>,
 }
 
-pub fn parse_fill_events_from_txns(
+pub fn parse_trades_from_openbook_txns(
     txns: &mut Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>,
-) -> Vec<FillEventLog> {
-    let mut fills_vector = Vec::<FillEventLog>::new();
+) -> Vec<OpenBookFillEventLog> {
+    let mut fills_vector = Vec::<OpenBookFillEventLog>::new();
     for txn in txns.iter_mut() {
-        // println!("{:#?}\n", txn.as_ref());
-
-        // fugly
         match txn {
             Ok(t) => {
                 if let Some(m) = &t.transaction.meta {
-                    // println!("{:#?}\n", m.log_messages);
-
                     match &m.log_messages {
-                        OptionSerializer::Some(logs) => match parse_fill_events_from_logs(logs) {
-                            Some(mut events) => fills_vector.append(&mut events),
-                            None => {}
-                        },
+                        OptionSerializer::Some(logs) => {
+                            match parse_openbook_fills_from_logs(logs) {
+                                Some(mut events) => fills_vector.append(&mut events),
+                                None => {}
+                            }
+                        }
                         OptionSerializer::None => {}
                         OptionSerializer::Skip => {}
                     }
                 }
             }
-            Err(_) => {} //println!("goo: {:?}", e),
+            Err(_) => {}
         }
     }
-    return fills_vector;
+    fills_vector
 }
 
-fn parse_fill_events_from_logs(logs: &Vec<String>) -> Option<Vec<FillEventLog>> {
-    let mut fills_vector = Vec::<FillEventLog>::new();
+fn parse_openbook_fills_from_logs(logs: &Vec<String>) -> Option<Vec<OpenBookFillEventLog>> {
+    let mut fills_vector = Vec::<OpenBookFillEventLog>::new();
     for l in logs {
         match l.strip_prefix(PROGRAM_DATA) {
             Some(log) => {
@@ -66,7 +63,7 @@ fn parse_fill_events_from_logs(logs: &Vec<String>) -> Option<Vec<FillEventLog>> 
                     _ => continue,
                 };
                 let mut slice: &[u8] = &borsh_bytes[8..];
-                let event: Result<FillEventLog, Error> =
+                let event: Result<OpenBookFillEventLog, Error> =
                     anchor_lang::AnchorDeserialize::deserialize(&mut slice);
 
                 match event {
