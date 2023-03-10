@@ -3136,6 +3136,7 @@ dependencies = [
  "solana-rpc",
  "solana-sdk",
  "solana-transaction-status",
+ "spl-token",
  "sqlx",
  "tokio",
  "tokio-stream",

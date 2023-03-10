@@ -1,6 +1,18 @@
 [
     {
-    "name" : "SOL/USDC",
-    "market" : "8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6"
+        "name" : "SOL/USDC",
+        "address" : "8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6"
+    },
+    {
+        "name" : "RLB/USDC",
+        "address" : "72h8rWaWwfPUL36PAFqyQZU8RT1V3FKG7Nc45aK89xTs"
+    },
+    {
+        "name" : "MNGO/USDC",
+        "address" : "3NnxQvDcZXputNMxaxsGvqiKpqgPfSYXpNigZNFcknmD"
+    },
+    {
+        "name" : "BONK/SOL",
+        "address" : "Hs97TCZeuYiJxooo3U73qEHXg3dKpRL4uYKYRryEK9CF"
     }
 ]

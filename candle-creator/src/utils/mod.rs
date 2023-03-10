@@ -18,13 +18,22 @@ pub struct Config {
     pub rpc_url: String,
     pub database_url: String,
     pub max_pg_pool_connections: u32,
-    pub markets: Vec<MarketConfig>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct MarketConfig {
     pub name: String,
-    pub market: String,
+    pub address: String,
+}
+
+#[derive(Debug)]
+pub struct MarketInfo {
+    pub name: String,
+    pub address: String,
+    pub base_decimals: u8,
+    pub quote_decimals: u8,
+    pub base_lot_size: u64,
+    pub quote_lot_size: u64,
 }
 
 pub fn load_markets(path: &str) -> Vec<MarketConfig> {

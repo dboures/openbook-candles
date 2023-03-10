@@ -19,6 +19,7 @@ solana-account-decoder = "=1.14.13"
 solana-transaction-status = "=1.14.13"
 solana-sdk = "=1.14.13"
 solana-rpc = "=1.14.13"
+spl-token = "3.5.0"
 anchor-client = "=0.26.0"
 borsh = "0.9"
 

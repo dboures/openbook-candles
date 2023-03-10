@@ -1,24 +1,23 @@
+use anchor_lang::AnchorDeserialize;
+use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     client_error::Result as ClientResult,
     rpc_client::{GetConfirmedSignaturesForAddress2Config, RpcClient},
-    rpc_config::RpcTransactionConfig,
+    rpc_config::{RpcTransactionConfig, RpcAccountInfoConfig},
 };
-use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature, program_pack::Pack};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
+use spl_token::state::Mint;
 use std::{str::FromStr, time::Duration};
 use tokio::sync::mpsc::Sender;
 
-use crate::utils::Config;
+use crate::{utils::{Config, MarketInfo, MarketConfig}, trade_fetching::parsing::{MarketState}};
 
 use super::parsing::{parse_trades_from_openbook_txns, OpenBookFillEventLog};
-
-// use serde::{Deserialize, Serialize};
 
 pub async fn scrape(config: &Config, fill_sender: Sender<OpenBookFillEventLog>) {
     let url = &config.rpc_url;
     let rpc_client = RpcClient::new_with_commitment(url, CommitmentConfig::processed());
-
-    fetch_market(&rpc_client).await;
 
     let before_slot = None;
     loop {
@@ -106,14 +105,66 @@ pub async fn scrape_transactions(
     Signature::from_str(&last_sig.signature).unwrap()
 }
 
-async fn fetch_market(rpc_client: &RpcClient) {
-    let data = rpc_client
-        .get_account_data(
-            &Pubkey::from_str("8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6").unwrap(),
-        )
-        .unwrap();
+pub async fn fetch_market_infos(config: &Config, markets: Vec<MarketConfig>) -> anyhow::Result<Vec<MarketInfo>> {
+    let url = &config.rpc_url;
+    let rpc_client = RpcClient::new_with_commitment(url, CommitmentConfig::processed());
 
-    println!("{}", data.len());
+    let rpc_config = RpcAccountInfoConfig {
+        encoding: Some(UiAccountEncoding::Base64),
+        data_slice: None,
+        commitment: Some(CommitmentConfig::confirmed()),
+        min_context_slot: None,
+    };
 
-    // simply the market object in TS
+    let market_keys = markets.iter().map(|x| Pubkey::from_str(&x.address).unwrap()).collect::<Vec<Pubkey>>();
+    let mut market_results = rpc_client.get_multiple_accounts_with_config(&market_keys, rpc_config.clone()).unwrap().value;
+
+    let mut mint_keys = Vec::new();
+
+    let mut market_infos = market_results.iter_mut().map(|mut r| {
+        let get_account_result = r.as_mut().unwrap();
+
+        let mut market_bytes: &[u8] = &mut get_account_result.data[5..];
+        let raw_market: MarketState = AnchorDeserialize::deserialize(&mut market_bytes).unwrap();
+
+        let base_mint = serum_bytes_to_pubkey(raw_market.coin_mint);
+        let quote_mint = serum_bytes_to_pubkey(raw_market.pc_mint);
+        mint_keys.push(base_mint);
+        mint_keys.push(quote_mint);
+
+        MarketInfo {
+            name: "".to_string(),
+            address: serum_bytes_to_pubkey(raw_market.own_address).to_string(),
+            base_decimals: 0,
+            quote_decimals: 0,
+            base_lot_size: raw_market.coin_lot_size,
+            quote_lot_size: raw_market.pc_lot_size,
+        }
+    }).collect::<Vec<MarketInfo>>();
+
+    let mint_results = rpc_client.get_multiple_accounts_with_config(&mint_keys, rpc_config).unwrap().value;
+    for i in (0..mint_results.len()).step_by(2) {
+        let mut base_mint_account = mint_results[i].as_ref().unwrap().clone();
+        let mut quote_mint_account = mint_results[i+1].as_ref().unwrap().clone();
+
+        let mut base_mint_bytes: &[u8] = &mut base_mint_account.data[..];
+        let mut quote_mint_bytes: &[u8] = &mut quote_mint_account.data[..];
+
+        let base_mint = Mint::unpack_from_slice(&mut base_mint_bytes).unwrap();
+        let quote_mint = Mint::unpack_from_slice(&mut quote_mint_bytes).unwrap();
+
+        market_infos[i / 2].name = markets[i / 2].name.clone();
+        market_infos[i / 2].base_decimals = base_mint.decimals;
+        market_infos[i / 2].quote_decimals = quote_mint.decimals;
+    }
+
+    Ok(market_infos)
+}
+
+fn serum_bytes_to_pubkey(data: [u64; 4]) -> Pubkey {
+    let mut res = [0; 32];
+    for i in 0..4 {
+        res[8*i..][..8].copy_from_slice(&data[i].to_le_bytes());
+    }
+    Pubkey::new_from_array(res)
 }

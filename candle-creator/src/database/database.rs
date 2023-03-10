@@ -12,7 +12,7 @@ use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 use crate::{
     trade_fetching::parsing::OpenBookFillEventLog,
-    utils::{AnyhowWrap, Config},
+    utils::{AnyhowWrap, Config, MarketInfo},
 };
 
 pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool<Postgres>> {
@@ -30,10 +30,11 @@ pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool<Postgre
     }
 }
 
-pub async fn setup_database(pool: &Pool<Postgres>) -> anyhow::Result<()> {
+pub async fn setup_database(pool: &Pool<Postgres>, markets: Vec<MarketInfo>) -> anyhow::Result<()> {
     let candles_table_fut = create_candles_table(pool);
     let fills_table_fut = create_fills_table(pool);
-    let result = tokio::try_join!(candles_table_fut, fills_table_fut);
+    let markets_table_fut = create_markets_table(pool, markets);
+    let result = tokio::try_join!(candles_table_fut, fills_table_fut, markets_table_fut);
     match result {
         Ok(_) => {
             println!("Successfully configured database");
@@ -107,6 +108,58 @@ pub async fn create_fills_table(pool: &Pool<Postgres>) -> anyhow::Result<()> {
         .await?;
 
     tx.commit().await.map_err_anyhow()
+}
+
+pub async fn create_markets_table(
+    pool: &Pool<Postgres>,
+    markets: Vec<MarketInfo>,
+) -> anyhow::Result<()> {
+    let mut tx = pool.begin().await.map_err_anyhow()?;
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS markets (
+            market_name text PRIMARY KEY,
+            address text,
+            base_decimals numeric,
+            quote_decimals numeric,
+            base_lot_size numeric,
+            quote_lot_size numeric
+        )",
+    )
+    .execute(&mut tx)
+    .await?;
+
+    let insert_statement = build_markets_insert_statement(markets);
+    sqlx::query(&insert_statement).execute(&mut tx).await?;
+
+    tx.commit().await.map_err_anyhow()
+}
+
+fn build_markets_insert_statement(markets: Vec<MarketInfo>) -> String {
+    let mut stmt = String::from("INSERT INTO markets (market_name, address, base_decimals, quote_decimals, base_lot_size, quote_lot_size) VALUES");
+    for (idx, market) in markets.iter().enumerate() {
+        let val_str = format!(
+            "(\'{}\', \'{}\', {}, {}, {}, {})",
+            market.name,
+            market.address,
+            market.base_decimals,
+            market.quote_decimals,
+            market.base_lot_size,
+            market.quote_lot_size,
+        );
+
+        if idx == 0 {
+            stmt = format!("{} {}", &stmt, val_str);
+        } else {
+            stmt = format!("{}, {}", &stmt, val_str);
+        }
+    }
+
+    let handle_conflict = "ON CONFLICT (market_name) DO UPDATE SET address=excluded.address";
+
+    stmt = format!("{} {}", stmt, handle_conflict);
+    print!("{}", stmt);
+    stmt
 }
 
 pub async fn save_candles() {
@@ -183,8 +236,6 @@ fn build_fills_upsert_statement(events: Vec<OpenBookFillEventLog>) -> String {
     print!("{}", stmt);
     stmt
 }
-
-// pub async fn create_markets_table() {}
 
 #[cfg(test)]
 mod tests {
