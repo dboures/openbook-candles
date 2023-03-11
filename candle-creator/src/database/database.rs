@@ -89,9 +89,7 @@ pub async fn create_fills_table(pool: &Pool<Postgres>) -> anyhow::Result<()> {
             native_qty_received numeric not null,
             native_fee_or_rebate numeric not null,
             fee_tier text not null,
-            order_id text not null,
-            client_order_id numeric not null,
-            referrer_rebate numeric not null
+            order_id text not null
         )",
     )
     .execute(&mut tx)
@@ -147,12 +145,12 @@ pub async fn handle_fill_events(
 }
 
 fn build_fills_upsert_statement(events: Vec<OpenBookFillEventLog>) -> String {
-    let mut stmt = String::from("INSERT INTO fills (id, time, market, open_orders, open_orders_owner, bid, maker, native_qty_paid, native_qty_received, native_fee_or_rebate, fee_tier, order_id, client_order_id, referrer_rebate) VALUES");
+    let mut stmt = String::from("INSERT INTO fills (id, time, market, open_orders, open_orders_owner, bid, maker, native_qty_paid, native_qty_received, native_fee_or_rebate, fee_tier, order_id) VALUES");
     for (idx, event) in events.iter().enumerate() {
         let mut hasher = DefaultHasher::new();
         event.hash(&mut hasher);
         let val_str = format!(
-            "({}, \'{}\', \'{}\', \'{}\', \'{}\', {}, {}, {}, {}, {}, {}, {}, {}, {})",
+            "({}, \'{}\', \'{}\', \'{}\', \'{}\', {}, {}, {}, {}, {}, {}, {})",
             hasher.finish(),
             Utc::now().to_rfc3339(),
             event.market,
@@ -165,8 +163,6 @@ fn build_fills_upsert_statement(events: Vec<OpenBookFillEventLog>) -> String {
             event.native_fee_or_rebate,
             event.fee_tier,
             event.order_id,
-            event.client_order_id.unwrap_or_else(|| 0),
-            event.referrer_rebate.unwrap_or_else(|| 0),
         );
 
         if idx == 0 {

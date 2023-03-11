@@ -3,15 +3,21 @@ use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     client_error::Result as ClientResult,
     rpc_client::{GetConfirmedSignaturesForAddress2Config, RpcClient},
-    rpc_config::{RpcTransactionConfig, RpcAccountInfoConfig},
+    rpc_config::{RpcAccountInfoConfig, RpcTransactionConfig},
 };
-use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature, program_pack::Pack};
+use solana_sdk::{
+    commitment_config::CommitmentConfig, program_pack::Pack, pubkey::Pubkey, signature::Signature,
+};
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use spl_token::state::Mint;
-use std::{str::FromStr, time::Duration};
+use std::{collections::HashMap, str::FromStr, time::Duration};
 use tokio::sync::mpsc::Sender;
 
-use crate::{utils::{Config, MarketInfo, MarketConfig}, trade_fetching::parsing::{MarketState}};
+use crate::{
+    database::MarketInfo,
+    trade_fetching::parsing::MarketState,
+    utils::{Config, MarketConfig},
+};
 
 use super::parsing::{parse_trades_from_openbook_txns, OpenBookFillEventLog};
 
@@ -28,37 +34,41 @@ pub async fn scrape(config: &Config, fill_sender: Sender<OpenBookFillEventLog>) 
     }
 }
 
-pub async fn backfill(config: &Config, fill_sender: Sender<OpenBookFillEventLog>) {
-    let url = &config.rpc_url;
-    let rpc_client = RpcClient::new_with_commitment(url, CommitmentConfig::processed());
+// pub async fn backfill(config: &Config, fill_sender: Sender<OpenBookFillEventLog>) {
+//     let url = &config.rpc_url;
+//     let rpc_client = RpcClient::new_with_commitment(url, CommitmentConfig::processed());
 
-    let mut before_slot: Option<Signature> = None;
+//     let mut before_slot: Option<Signature> = None;
 
-    loop {
-        let last_sig = scrape_transactions(&rpc_client, before_slot, &fill_sender).await;
+//     loop {
+//         let last_sig_option = scrape_transactions(&rpc_client, before_slot, &fill_sender).await;
 
-        match rpc_client.get_transaction(&last_sig, UiTransactionEncoding::Json) {
-            Ok(txn) => {
-                let unix_sig_time = rpc_client.get_block_time(txn.slot).unwrap();
-                if unix_sig_time > 0 {
-                    // TODO: is 3 months in past
-                    break;
-                }
-                println!("backfill at {}", unix_sig_time);
-            }
-            Err(_) => continue,
-        }
-        before_slot = Some(last_sig);
-    }
+//         if last_sig_option.is_none() {
+//             continue;
+//         }
 
-    print!("Backfill complete \n");
-}
+//         match rpc_client.get_transaction(&last_sig_option.unwrap(), UiTransactionEncoding::Json) {
+//             Ok(txn) => {
+//                 let unix_sig_time = rpc_client.get_block_time(txn.slot).unwrap();
+//                 if unix_sig_time > 0 {
+//                     // TODO: is 3 months in past
+//                     break;
+//                 }
+//                 println!("backfill at {}", unix_sig_time);
+//             }
+//             Err(_) => continue,
+//         }
+//         before_slot = last_sig_option;
+//     }
+
+//     print!("Backfill complete \n");
+// }
 
 pub async fn scrape_transactions(
     rpc_client: &RpcClient,
     before_slot: Option<Signature>,
     fill_sender: &Sender<OpenBookFillEventLog>,
-) -> Signature {
+) -> Option<Signature> {
     let rpc_config = GetConfirmedSignaturesForAddress2Config {
         before: before_slot,
         until: None,
@@ -71,11 +81,11 @@ pub async fn scrape_transactions(
         rpc_config,
     ) {
         Ok(s) => s,
-        Err(_) => return before_slot.unwrap(),
+        Err(_) => return before_slot, // TODO: add error log
     };
 
     sigs.retain(|sig| sig.err.is_none());
-    let last_sig = sigs.last().unwrap().clone();
+    let last_sig = sigs.last().unwrap().clone(); // Failed here
 
     let txn_config = RpcTransactionConfig {
         encoding: Some(UiTransactionEncoding::Json),
@@ -102,10 +112,13 @@ pub async fn scrape_transactions(
         }
     }
 
-    Signature::from_str(&last_sig.signature).unwrap()
+    Some(Signature::from_str(&last_sig.signature).unwrap())
 }
 
-pub async fn fetch_market_infos(config: &Config, markets: Vec<MarketConfig>) -> anyhow::Result<Vec<MarketInfo>> {
+pub async fn fetch_market_infos(
+    config: &Config,
+    markets: Vec<MarketConfig>,
+) -> anyhow::Result<Vec<MarketInfo>> {
     let url = &config.rpc_url;
     let rpc_client = RpcClient::new_with_commitment(url, CommitmentConfig::processed());
 
@@ -116,46 +129,74 @@ pub async fn fetch_market_infos(config: &Config, markets: Vec<MarketConfig>) -> 
         min_context_slot: None,
     };
 
-    let market_keys = markets.iter().map(|x| Pubkey::from_str(&x.address).unwrap()).collect::<Vec<Pubkey>>();
-    let mut market_results = rpc_client.get_multiple_accounts_with_config(&market_keys, rpc_config.clone()).unwrap().value;
+    let market_keys = markets
+        .iter()
+        .map(|x| Pubkey::from_str(&x.address).unwrap())
+        .collect::<Vec<Pubkey>>();
+    let mut market_results = rpc_client
+        .get_multiple_accounts_with_config(&market_keys, rpc_config.clone())
+        .unwrap()
+        .value;
 
-    let mut mint_keys = Vec::new();
+    let mut mint_key_map = HashMap::new();
 
-    let mut market_infos = market_results.iter_mut().map(|mut r| {
-        let get_account_result = r.as_mut().unwrap();
+    let mut market_infos = market_results
+        .iter_mut()
+        .map(|r| {
+            let get_account_result = r.as_mut().unwrap();
 
-        let mut market_bytes: &[u8] = &mut get_account_result.data[5..];
-        let raw_market: MarketState = AnchorDeserialize::deserialize(&mut market_bytes).unwrap();
+            let mut market_bytes: &[u8] = &mut get_account_result.data[5..];
+            let raw_market: MarketState =
+                AnchorDeserialize::deserialize(&mut market_bytes).unwrap();
 
-        let base_mint = serum_bytes_to_pubkey(raw_market.coin_mint);
-        let quote_mint = serum_bytes_to_pubkey(raw_market.pc_mint);
-        mint_keys.push(base_mint);
-        mint_keys.push(quote_mint);
+            let market_address_string = serum_bytes_to_pubkey(raw_market.own_address).to_string();
+            let base_mint_key = serum_bytes_to_pubkey(raw_market.coin_mint);
+            let quote_mint_key = serum_bytes_to_pubkey(raw_market.pc_mint);
+            mint_key_map.insert(base_mint_key, 0);
+            mint_key_map.insert(quote_mint_key, 0);
 
-        MarketInfo {
-            name: "".to_string(),
-            address: serum_bytes_to_pubkey(raw_market.own_address).to_string(),
-            base_decimals: 0,
-            quote_decimals: 0,
-            base_lot_size: raw_market.coin_lot_size,
-            quote_lot_size: raw_market.pc_lot_size,
-        }
-    }).collect::<Vec<MarketInfo>>();
+            let market_name = markets
+                .iter()
+                .find(|x| x.address == market_address_string)
+                .unwrap()
+                .name
+                .clone();
 
-    let mint_results = rpc_client.get_multiple_accounts_with_config(&mint_keys, rpc_config).unwrap().value;
-    for i in (0..mint_results.len()).step_by(2) {
-        let mut base_mint_account = mint_results[i].as_ref().unwrap().clone();
-        let mut quote_mint_account = mint_results[i+1].as_ref().unwrap().clone();
+            MarketInfo {
+                name: market_name,
+                address: market_address_string,
+                base_decimals: 0,
+                quote_decimals: 0,
+                base_mint_key: base_mint_key.to_string(),
+                quote_mint_key: quote_mint_key.to_string(),
+                base_lot_size: raw_market.coin_lot_size,
+                quote_lot_size: raw_market.pc_lot_size,
+            }
+        })
+        .collect::<Vec<MarketInfo>>();
 
-        let mut base_mint_bytes: &[u8] = &mut base_mint_account.data[..];
-        let mut quote_mint_bytes: &[u8] = &mut quote_mint_account.data[..];
+    let mint_keys = mint_key_map.keys().cloned().collect::<Vec<Pubkey>>();
 
-        let base_mint = Mint::unpack_from_slice(&mut base_mint_bytes).unwrap();
-        let quote_mint = Mint::unpack_from_slice(&mut quote_mint_bytes).unwrap();
+    let mint_results = rpc_client
+        .get_multiple_accounts_with_config(&mint_keys, rpc_config)
+        .unwrap()
+        .value;
+    // println!("{:?}", mint_results);
+    // println!("{:?}", mint_keys);
+    // println!("{:?}", mint_results.len());
+    for i in 0..mint_results.len() {
+        let mut mint_account = mint_results[i].as_ref().unwrap().clone();
+        let mut mint_bytes: &[u8] = &mut mint_account.data[..];
+        let mint = Mint::unpack_from_slice(&mut mint_bytes).unwrap();
 
-        market_infos[i / 2].name = markets[i / 2].name.clone();
-        market_infos[i / 2].base_decimals = base_mint.decimals;
-        market_infos[i / 2].quote_decimals = quote_mint.decimals;
+        mint_key_map.insert(mint_keys[i], mint.decimals);
+    }
+
+    for i in 0..market_infos.len() {
+        let base_key = Pubkey::from_str(&market_infos[i].base_mint_key).unwrap();
+        let quote_key = Pubkey::from_str(&market_infos[i].quote_mint_key).unwrap();
+        market_infos[i].base_decimals = *mint_key_map.get(&base_key).unwrap();
+        market_infos[i].quote_decimals = *mint_key_map.get(&quote_key).unwrap();
     }
 
     Ok(market_infos)
@@ -164,7 +205,7 @@ pub async fn fetch_market_infos(config: &Config, markets: Vec<MarketConfig>) -> 
 fn serum_bytes_to_pubkey(data: [u64; 4]) -> Pubkey {
     let mut res = [0; 32];
     for i in 0..4 {
-        res[8*i..][..8].copy_from_slice(&data[i].to_le_bytes());
+        res[8 * i..][..8].copy_from_slice(&data[i].to_le_bytes());
     }
     Pubkey::new_from_array(res)
 }
