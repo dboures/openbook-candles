@@ -12,105 +12,9 @@ use crate::{
     utils::{AnyhowWrap, Config},
 };
 
-use super::MarketInfo;
+use super::Candle;
 
-pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool<Postgres>> {
-    loop {
-        let pool = PgPoolOptions::new()
-            .max_connections(config.max_pg_pool_connections)
-            .connect(&config.database_url)
-            .await;
-        if pool.is_ok() {
-            println!("Database connected");
-            return pool.map_err_anyhow();
-        }
-        println!("Failed to connect to database, retrying");
-        tokio::time::sleep(Duration::from_millis(500)).await;
-    }
-}
-
-pub async fn setup_database(pool: &Pool<Postgres>, markets: Vec<MarketInfo>) -> anyhow::Result<()> {
-    let candles_table_fut = create_candles_table(pool);
-    let fills_table_fut = create_fills_table(pool);
-    let result = tokio::try_join!(candles_table_fut, fills_table_fut);
-    match result {
-        Ok(_) => {
-            println!("Successfully configured database");
-            Ok(())
-        }
-        Err(e) => {
-            println!("Failed to configure database: {e}");
-            Err(e)
-        }
-    }
-}
-
-pub async fn create_candles_table(pool: &Pool<Postgres>) -> anyhow::Result<()> {
-    let mut tx = pool.begin().await.map_err_anyhow()?;
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS candles (
-            id serial,
-            market text,
-            start_time timestamptz,
-            end_time timestamptz,
-            resolution text,
-            open numeric,
-            close numeric,
-            high numeric,
-            low numeric,
-            volume numeric,
-            complete bool
-        )",
-    )
-    .execute(&mut tx)
-    .await?;
-
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_market_time_resolution ON candles (market, start_time, resolution)"
-    ).execute(&mut tx).await?;
-
-    tx.commit().await.map_err_anyhow()
-}
-
-pub async fn create_fills_table(pool: &Pool<Postgres>) -> anyhow::Result<()> {
-    let mut tx = pool.begin().await.map_err_anyhow()?;
-
-    sqlx::query!(
-        "CREATE TABLE IF NOT EXISTS fills (
-            id numeric PRIMARY KEY,
-            time timestamptz not null,
-            market text not null,
-            open_orders text not null,
-            open_orders_owner text not null,
-            bid bool not null,
-            maker bool not null,
-            native_qty_paid numeric not null,
-            native_qty_received numeric not null,
-            native_fee_or_rebate numeric not null,
-            fee_tier text not null,
-            order_id text not null
-        )",
-    )
-    .execute(&mut tx)
-    .await?;
-
-    sqlx::query!("CREATE INDEX IF NOT EXISTS idx_id_market ON fills (id, market)")
-        .execute(&mut tx)
-        .await?;
-
-    sqlx::query!("CREATE INDEX IF NOT EXISTS idx_market_time ON fills (market, time)")
-        .execute(&mut tx)
-        .await?;
-
-    tx.commit().await.map_err_anyhow()
-}
-
-pub async fn save_candles() {
-    unimplemented!("TODO");
-}
-
-pub async fn handle_fill_events(
+pub async fn persist_fill_events(
     pool: &Pool<Postgres>,
     mut fill_receiver: Receiver<OpenBookFillEventLog>,
 ) {
@@ -127,7 +31,7 @@ pub async fn handle_fill_events(
                 }
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
-                    panic!("sender must stay alive")
+                    panic!("Fills sender must stay alive")
                 }
             };
         }
@@ -176,6 +80,73 @@ fn build_fills_upsert_statement(events: Vec<OpenBookFillEventLog>) -> String {
 
     stmt = format!("{} {}", stmt, handle_conflict);
     print!("{}", stmt);
+    stmt
+}
+
+pub async fn persist_candles(pool: Pool<Postgres>, mut candles_receiver: Receiver<Vec<Candle>>) {
+    loop {
+        match candles_receiver.try_recv() {
+            Ok(candles) => {
+                if candles.len() == 0 {
+                    continue;
+                }
+                print!("writing: {:?} candles to DB\n", candles.len());
+                match candles.last() {
+                    Some(c) => {
+                        println!("{:?}\n\n", c.end_time)
+                    }
+                    None => {}
+                }
+                let upsert_statement = build_candes_upsert_statement(candles);
+                sqlx::query(&upsert_statement)
+                    .execute(&pool)
+                    .await
+                    .map_err_anyhow()
+                    .unwrap();
+            }
+            Err(TryRecvError::Empty) => continue,
+            Err(TryRecvError::Disconnected) => {
+                panic!("Candles sender must stay alive")
+            }
+        };
+    }
+}
+
+fn build_candes_upsert_statement(candles: Vec<Candle>) -> String {
+    let mut stmt = String::from("INSERT INTO candles (market, start_time, end_time, resolution, open, close, high, low, volume, complete) VALUES");
+    for (idx, candle) in candles.iter().enumerate() {
+        let val_str = format!(
+            "(\'{}\', \'{}\', \'{}\', \'{}\', {}, {}, {}, {}, {}, {})",
+            candle.market,
+            candle.start_time.to_rfc3339(),
+            candle.end_time.to_rfc3339(),
+            candle.resolution,
+            candle.open,
+            candle.close,
+            candle.high,
+            candle.low,
+            candle.volume,
+            candle.complete,
+        );
+
+        if idx == 0 {
+            stmt = format!("{} {}", &stmt, val_str);
+        } else {
+            stmt = format!("{}, {}", &stmt, val_str);
+        }
+    }
+
+    let handle_conflict = "ON CONFLICT (market, start_time, resolution) 
+    DO UPDATE SET 
+    open=excluded.open, 
+    close=excluded.close, 
+    high=excluded.high, 
+    low=excluded.low,
+    volume=excluded.volume,
+    complete=excluded.complete
+    ";
+
+    stmt = format!("{} {}", stmt, handle_conflict);
     stmt
 }
 

@@ -1,11 +1,12 @@
 use crate::{
-    database::{fetchers::fetch_latest_finished_candle, Resolution},
+    candle_batching::batch_candles,
+    database::{fetch::fetch_latest_finished_candle, insert::persist_candles, Candle, Resolution},
     trade_fetching::{parsing::OpenBookFillEventLog, scrape::fetch_market_infos},
     utils::Config,
 };
 use database::{
-    database::{connect_to_database, setup_database},
-    fetchers::fetch_earliest_fill,
+    fetch::fetch_earliest_fill,
+    initialize::{connect_to_database, setup_database},
 };
 use dotenv;
 use solana_sdk::pubkey::Pubkey;
@@ -39,14 +40,26 @@ async fn main() -> anyhow::Result<()> {
     // let (fill_sender, fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
 
     // tokio::spawn(async move {
-    //     trade_fetching::scrape::scrape(&config, fill_sender.clone()).await;
+    //     trade_fetching::scrape::scrape(&config, fill_sender.clone()).await; TODO: send the vec, it's okay
     // });
 
     // database::database::handle_fill_events(&pool, fill_receiver).await;
 
     // trade_fetching::websocket::listen_logs().await?;
 
-    candle_batching::batcher::batch_candles(&pool, market_infos).await;
+    let (candle_sender, candle_receiver) = mpsc::channel::<Vec<Candle>>(1000);
+
+    let batch_pool = pool.clone();
+    tokio::spawn(async move {
+        batch_candles(batch_pool, &candle_sender, market_infos).await;
+    });
+
+    let persist_pool = pool.clone();
+    // tokio::spawn(async move {
+    persist_candles(persist_pool, candle_receiver).await;
+    // });
+
+    loop {}
 
     Ok(())
 }

@@ -1,47 +1,17 @@
 use std::cmp::{max, min};
 
-use chrono::{DateTime, Duration, DurationRound, SubsecRound, Utc};
+use chrono::{DateTime, Duration, DurationRound, Utc};
 use num_traits::{FromPrimitive, Zero};
 use sqlx::{types::Decimal, Pool, Postgres};
 
 use crate::database::{
-    fetchers::{fetch_earliest_fill, fetch_fills_from, fetch_latest_finished_candle},
+    fetch::{fetch_earliest_fill, fetch_fills_from, fetch_latest_finished_candle},
     Candle, MarketInfo, PgOpenBookFill, Resolution,
 };
 
-pub async fn batch_candles(pool: &Pool<Postgres>, markets: Vec<MarketInfo>) {
-    let m = MarketInfo {
-        name: "BTC/USDC".to_owned(),
-        address: "A8YFbxQYFVqKZaoYJLLUVcQiWP7G2MeEgW5wsAQgMvFw".to_owned(),
-        base_decimals: 6,
-        quote_decimals: 6,
-        base_mint_key: "GVXRSBjFk6e6J3NbVPXohDJetcTjaeeuykUpbQF8UoMU".to_owned(),
-        quote_mint_key: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_owned(),
-        base_lot_size: 10_000,
-        quote_lot_size: 1,
-    };
-    batch_for_market(&pool.clone(), m).await.unwrap();
+use super::DAY;
 
-    // for market in markets.iter() {
-    //     tokio::spawn(async move {
-    //         loop {
-    //             batch_for_market(&pool.clone(), &market.address.clone()).await;
-    //         }
-    //         });
-    // }
-}
-
-async fn batch_for_market(pool: &Pool<Postgres>, market: MarketInfo) -> anyhow::Result<()> {
-    let candles = batch_1m_candles(pool, market).await?;
-    // println!("candles {:?}", candles[10]);
-    // database::insert_candles(pool, candles)
-
-    // for resolution in Resolution.iter
-
-    Ok(())
-}
-
-async fn batch_1m_candles(
+pub async fn batch_1m_candles(
     pool: &Pool<Postgres>,
     market: MarketInfo,
 ) -> anyhow::Result<Vec<Candle>> {
@@ -53,7 +23,7 @@ async fn batch_1m_candles(
         Some(candle) => {
             let start_time = candle.end_time;
             let end_time = min(
-                start_time + Duration::hours(6),
+                start_time + DAY(),
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
             let mut fills =
@@ -80,7 +50,7 @@ async fn batch_1m_candles(
                 .time
                 .duration_trunc(Duration::minutes(1))?;
             let end_time = min(
-                start_time + Duration::hours(6),
+                start_time + DAY(),
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
             let mut fills =
@@ -108,7 +78,7 @@ fn combine_fills_into_1m_candles(
     let mut start_time = st.clone();
     let mut end_time = start_time + Duration::minutes(1);
 
-    let mut last_price = maybe_last_price.unwrap_or(Decimal::zero());
+    let mut last_price = maybe_last_price.unwrap_or(Decimal::zero()); // TODO: very first open is wrong
 
     for i in 0..candles.len() {
         candles[i].open = last_price;
@@ -122,8 +92,6 @@ fn combine_fills_into_1m_candles(
             let (price, volume) =
                 calculate_fill_price_and_size(*fill, market.base_decimals, market.quote_decimals);
 
-            println!("{:?}", price);
-
             candles[i].close = price;
             candles[i].low = min(price, candles[i].low);
             candles[i].high = max(price, candles[i].high);
@@ -135,8 +103,6 @@ fn combine_fills_into_1m_candles(
         candles[i].start_time = start_time;
         candles[i].end_time = end_time;
         candles[i].complete = matches!(fills_iter.peek(), Some(f) if f.time > end_time);
-
-        println!("{:?}", candles[i]);
 
         start_time = end_time;
         end_time = end_time + Duration::minutes(1);

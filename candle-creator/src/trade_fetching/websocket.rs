@@ -20,7 +20,7 @@ use std::{io::Error, rc::Rc, str::FromStr, time::Duration};
 
 use crate::utils::AnyhowWrap;
 use crate::{
-    database::database::{connect_to_database, setup_database},
+    database::initialize::{connect_to_database, setup_database},
     utils::Config,
 };
 

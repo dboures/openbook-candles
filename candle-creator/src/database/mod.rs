@@ -1,18 +1,21 @@
 use std::fmt;
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use num_traits::Zero;
 use sqlx::types::Decimal;
 use strum::EnumIter;
 
-pub mod database;
-pub mod fetchers;
+use crate::candle_batching::DAY;
+
+pub mod fetch;
+pub mod initialize;
+pub mod insert;
 
 pub trait Summary {
     fn summarize(&self) -> String;
 }
 
-#[derive(EnumIter)]
+#[derive(EnumIter, Copy, Clone, Eq, PartialEq)]
 pub enum Resolution {
     R1m,
     R3m,
@@ -23,7 +26,6 @@ pub enum Resolution {
     R2h,
     R4h,
     R1d,
-    R1w,
 }
 
 impl fmt::Display for Resolution {
@@ -38,7 +40,6 @@ impl fmt::Display for Resolution {
             Resolution::R2h => write!(f, "2H"),
             Resolution::R4h => write!(f, "4H"),
             Resolution::R1d => write!(f, "1D"),
-            Resolution::R1w => write!(f, "1W"),
         }
     }
 }
@@ -55,22 +56,20 @@ impl Resolution {
             Resolution::R2h => Resolution::R1h,
             Resolution::R4h => Resolution::R2h,
             Resolution::R1d => Resolution::R4h,
-            Resolution::R1w => Resolution::R1d,
         }
     }
 
-    pub fn get_constituent_resolution_factor(self) -> u8 {
+    pub fn get_duration(self) -> Duration {
         match self {
-            Resolution::R1m => panic!("have to use fills to make 1M candles"),
-            Resolution::R3m => 3,
-            Resolution::R5m => 5,
-            Resolution::R15m => 3,
-            Resolution::R30m => 2,
-            Resolution::R1h => 2,
-            Resolution::R2h => 2,
-            Resolution::R4h => 2,
-            Resolution::R1d => 6,
-            Resolution::R1w => 7,
+            Resolution::R1m => Duration::minutes(1),
+            Resolution::R3m => Duration::minutes(3),
+            Resolution::R5m => Duration::minutes(5),
+            Resolution::R15m => Duration::minutes(15),
+            Resolution::R30m => Duration::minutes(30),
+            Resolution::R1h => Duration::hours(1),
+            Resolution::R2h => Duration::hours(2),
+            Resolution::R4h => Duration::hours(4),
+            Resolution::R1d => DAY(),
         }
     }
 }
