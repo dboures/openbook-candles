@@ -2,7 +2,7 @@ use solana_client::client_error::Result as ClientResult;
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
 };
-use std::io::Error;
+use std::{collections::HashMap, io::Error};
 
 use anchor_lang::{event, AnchorDeserialize, AnchorSerialize};
 use solana_sdk::pubkey::Pubkey;
@@ -10,7 +10,7 @@ use solana_sdk::pubkey::Pubkey;
 const PROGRAM_DATA: &str = "Program data: ";
 
 #[event]
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OpenBookFillEventLog {
     pub market: Pubkey,
     pub open_orders: Pubkey,
@@ -84,6 +84,7 @@ pub struct MarketState {
 
 pub fn parse_trades_from_openbook_txns(
     txns: &mut Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>,
+    target_markets: &HashMap<Pubkey, u8>,
 ) -> Vec<OpenBookFillEventLog> {
     let mut fills_vector = Vec::<OpenBookFillEventLog>::new();
     for txn in txns.iter_mut() {
@@ -92,7 +93,7 @@ pub fn parse_trades_from_openbook_txns(
                 if let Some(m) = &t.transaction.meta {
                     match &m.log_messages {
                         OptionSerializer::Some(logs) => {
-                            match parse_openbook_fills_from_logs(logs) {
+                            match parse_openbook_fills_from_logs(logs, target_markets) {
                                 Some(mut events) => fills_vector.append(&mut events),
                                 None => {}
                             }
@@ -108,7 +109,10 @@ pub fn parse_trades_from_openbook_txns(
     fills_vector
 }
 
-fn parse_openbook_fills_from_logs(logs: &Vec<String>) -> Option<Vec<OpenBookFillEventLog>> {
+fn parse_openbook_fills_from_logs(
+    logs: &Vec<String>,
+    target_markets: &HashMap<Pubkey, u8>,
+) -> Option<Vec<OpenBookFillEventLog>> {
     let mut fills_vector = Vec::<OpenBookFillEventLog>::new();
     for l in logs {
         match l.strip_prefix(PROGRAM_DATA) {
@@ -123,7 +127,9 @@ fn parse_openbook_fills_from_logs(logs: &Vec<String>) -> Option<Vec<OpenBookFill
 
                 match event {
                     Ok(e) => {
-                        fills_vector.push(e);
+                        if target_markets.contains_key(&e.market) {
+                            fills_vector.push(e);
+                        }
                     }
                     _ => continue,
                 }

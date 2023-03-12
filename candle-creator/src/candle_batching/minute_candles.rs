@@ -9,7 +9,7 @@ use crate::database::{
     Candle, MarketInfo, PgOpenBookFill, Resolution,
 };
 
-use super::DAY;
+use super::day;
 
 pub async fn batch_1m_candles(
     pool: &Pool<Postgres>,
@@ -23,7 +23,7 @@ pub async fn batch_1m_candles(
         Some(candle) => {
             let start_time = candle.end_time;
             let end_time = min(
-                start_time + DAY(),
+                start_time + day(),
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
             let mut fills =
@@ -50,7 +50,7 @@ pub async fn batch_1m_candles(
                 .time
                 .duration_trunc(Duration::minutes(1))?;
             let end_time = min(
-                start_time + DAY(),
+                start_time + day(),
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
             let mut fills =

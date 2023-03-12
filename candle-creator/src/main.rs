@@ -1,13 +1,19 @@
+use std::{collections::HashMap, str::FromStr};
+
 use crate::{
     candle_batching::batch_candles,
-    database::{fetch::fetch_latest_finished_candle, insert::persist_candles, Candle, Resolution},
-    trade_fetching::{parsing::OpenBookFillEventLog, scrape::fetch_market_infos},
+    database::{
+        insert::{persist_candles, persist_fill_events},
+        Candle,
+    },
+    trade_fetching::{
+        backfill::backfill,
+        parsing::OpenBookFillEventLog,
+        scrape::{fetch_market_infos, scrape},
+    },
     utils::Config,
 };
-use database::{
-    fetch::fetch_earliest_fill,
-    initialize::{connect_to_database, setup_database},
-};
+use database::initialize::{connect_to_database, setup_database};
 use dotenv;
 use solana_sdk::pubkey::Pubkey;
 use tokio::sync::mpsc;
@@ -25,41 +31,52 @@ async fn main() -> anyhow::Result<()> {
     let database_url: String = dotenv::var("DATABASE_URL").unwrap();
 
     let config = Config {
-        rpc_url,
+        rpc_url: rpc_url.clone(),
         database_url,
         max_pg_pool_connections: 5,
     };
 
     let markets = utils::load_markets("/Users/dboures/dev/openbook-candles/markets.json");
     let market_infos = fetch_market_infos(&config, markets).await?;
-    println!("{:?}", market_infos);
+    let mut target_markets = HashMap::new();
+    for m in market_infos.clone() {
+        target_markets.insert(Pubkey::from_str(&m.address)?, 0);
+    }
+    println!("{:?}", target_markets);
 
     let pool = connect_to_database(&config).await?;
-    // setup_database(&pool, market_infos).await?;
+    setup_database(&pool).await?;
 
-    // let (fill_sender, fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
+    let (fill_sender, fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
 
-    // tokio::spawn(async move {
-    //     trade_fetching::scrape::scrape(&config, fill_sender.clone()).await; TODO: send the vec, it's okay
-    // });
-
-    // database::database::handle_fill_events(&pool, fill_receiver).await;
-
-    // trade_fetching::websocket::listen_logs().await?;
-
-    let (candle_sender, candle_receiver) = mpsc::channel::<Vec<Candle>>(1000);
-
-    let batch_pool = pool.clone();
+    let bf_sender = fill_sender.clone();
+    let targets = target_markets.clone();
     tokio::spawn(async move {
-        batch_candles(batch_pool, &candle_sender, market_infos).await;
+        backfill(&rpc_url.clone(), &bf_sender, &targets).await;
     });
 
-    let persist_pool = pool.clone();
+    tokio::spawn(async move {
+        scrape(&config, &fill_sender, &target_markets).await; //TODO: send the vec, it's okay
+    });
+
+    let fills_pool = pool.clone();
+    tokio::spawn(async move {
+        persist_fill_events(&fills_pool, fill_receiver).await;
+    });
+
+    // let (candle_sender, candle_receiver) = mpsc::channel::<Vec<Candle>>(1000);
+
+    // let batch_pool = pool.clone();
     // tokio::spawn(async move {
-    persist_candles(persist_pool, candle_receiver).await;
+    //     batch_candles(batch_pool, &candle_sender, market_infos).await;
     // });
 
-    loop {}
+    // let persist_pool = pool.clone();
+    // // tokio::spawn(async move {
+    // persist_candles(persist_pool, candle_receiver).await;
+    // // });
+
+    loop {} // tokio drop if one thread drops or something
 
     Ok(())
 }

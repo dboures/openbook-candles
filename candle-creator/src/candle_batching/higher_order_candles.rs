@@ -4,7 +4,7 @@ use sqlx::{types::Decimal, Pool, Postgres};
 use std::cmp::{max, min};
 
 use crate::{
-    candle_batching::DAY,
+    candle_batching::day,
     database::{
         fetch::{fetch_candles_from, fetch_earliest_candle, fetch_latest_finished_candle},
         Candle, Resolution,
@@ -22,7 +22,7 @@ pub async fn batch_higher_order_candles(
     match latest_candle {
         Some(candle) => {
             let start_time = candle.end_time;
-            let end_time = start_time + DAY();
+            let end_time = start_time + day();
             // println!("candle.end_time: {:?}", candle.end_time);
             // println!("start_time: {:?}", start_time);
             let mut constituent_candles = fetch_candles_from(
@@ -63,8 +63,8 @@ pub async fn batch_higher_order_candles(
             let start_time = constituent_candle
                 .unwrap()
                 .start_time
-                .duration_trunc(DAY())?;
-            let end_time = start_time + DAY();
+                .duration_trunc(day())?;
+            let end_time = start_time + day();
 
             let mut constituent_candles = fetch_candles_from(
                 pool,
@@ -106,7 +106,7 @@ fn combine_into_higher_order_candles(
     let empty_candle =
         Candle::create_empty_candle(constituent_candles[0].market.clone(), target_resolution);
     let mut combined_candles =
-        vec![empty_candle; (DAY().num_minutes() / duration.num_minutes()) as usize];
+        vec![empty_candle; (day().num_minutes() / duration.num_minutes()) as usize];
 
     println!("candles_len: {}", candles_len);
 

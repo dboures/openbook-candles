@@ -5,7 +5,7 @@ use num_traits::Zero;
 use sqlx::types::Decimal;
 use strum::EnumIter;
 
-use crate::candle_batching::DAY;
+use crate::candle_batching::day;
 
 pub mod fetch;
 pub mod initialize;
@@ -69,7 +69,7 @@ impl Resolution {
             Resolution::R1h => Duration::hours(1),
             Resolution::R2h => Duration::hours(2),
             Resolution::R4h => Duration::hours(4),
-            Resolution::R1d => DAY(),
+            Resolution::R1d => day(),
         }
     }
 }
@@ -115,7 +115,7 @@ pub struct PgOpenBookFill {
     pub native_fee_or_rebate: Decimal,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MarketInfo {
     pub name: String,
     pub address: String,

@@ -10,7 +10,7 @@ use solana_sdk::{
 };
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
 use spl_token::state::Mint;
-use std::{collections::HashMap, str::FromStr, time::Duration};
+use std::{collections::HashMap, str::FromStr, time::Duration as WaitDuration};
 use tokio::sync::mpsc::Sender;
 
 use crate::{
@@ -21,58 +21,39 @@ use crate::{
 
 use super::parsing::{parse_trades_from_openbook_txns, OpenBookFillEventLog};
 
-pub async fn scrape(config: &Config, fill_sender: Sender<OpenBookFillEventLog>) {
+pub async fn scrape(
+    config: &Config,
+    fill_sender: &Sender<OpenBookFillEventLog>,
+    target_markets: &HashMap<Pubkey, u8>,
+) {
     let url = &config.rpc_url;
     let rpc_client = RpcClient::new_with_commitment(url, CommitmentConfig::processed());
 
     let before_slot = None;
     loop {
-        scrape_transactions(&rpc_client, before_slot, &fill_sender).await;
-
-        print!("Ding fires are done \n\n");
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        scrape_transactions(
+            &rpc_client,
+            before_slot,
+            Some(150),
+            fill_sender,
+            target_markets,
+        )
+        .await;
+        tokio::time::sleep(WaitDuration::from_millis(250)).await;
     }
 }
 
-// pub async fn backfill(config: &Config, fill_sender: Sender<OpenBookFillEventLog>) {
-//     let url = &config.rpc_url;
-//     let rpc_client = RpcClient::new_with_commitment(url, CommitmentConfig::processed());
-
-//     let mut before_slot: Option<Signature> = None;
-
-//     loop {
-//         let last_sig_option = scrape_transactions(&rpc_client, before_slot, &fill_sender).await;
-
-//         if last_sig_option.is_none() {
-//             continue;
-//         }
-
-//         match rpc_client.get_transaction(&last_sig_option.unwrap(), UiTransactionEncoding::Json) {
-//             Ok(txn) => {
-//                 let unix_sig_time = rpc_client.get_block_time(txn.slot).unwrap();
-//                 if unix_sig_time > 0 {
-//                     // TODO: is 3 months in past
-//                     break;
-//                 }
-//                 println!("backfill at {}", unix_sig_time);
-//             }
-//             Err(_) => continue,
-//         }
-//         before_slot = last_sig_option;
-//     }
-
-//     print!("Backfill complete \n");
-// }
-
 pub async fn scrape_transactions(
     rpc_client: &RpcClient,
-    before_slot: Option<Signature>,
+    before_sig: Option<Signature>,
+    limit: Option<usize>,
     fill_sender: &Sender<OpenBookFillEventLog>,
+    target_markets: &HashMap<Pubkey, u8>,
 ) -> Option<Signature> {
     let rpc_config = GetConfirmedSignaturesForAddress2Config {
-        before: before_slot,
+        before: before_sig,
         until: None,
-        limit: Some(150),
+        limit,
         commitment: Some(CommitmentConfig::confirmed()),
     };
 
@@ -81,11 +62,24 @@ pub async fn scrape_transactions(
         rpc_config,
     ) {
         Ok(s) => s,
-        Err(_) => return before_slot, // TODO: add error log
+        Err(e) => {
+            println!("Error in get_signatures_for_address_with_config: {}", e);
+            return before_sig;
+        }
     };
 
+    if sigs.len() == 0 {
+        println!("No signatures found");
+        return before_sig;
+    }
+
+    let last = sigs.last().clone().unwrap();
+    let request_last_sig = Signature::from_str(&last.signature).unwrap();
+
     sigs.retain(|sig| sig.err.is_none());
-    let last_sig = sigs.last().unwrap().clone(); // Failed here
+    if sigs.last().is_none() {
+        return Some(request_last_sig);
+    }
 
     let txn_config = RpcTransactionConfig {
         encoding: Some(UiTransactionEncoding::Json),
@@ -103,7 +97,7 @@ pub async fn scrape_transactions(
         })
         .collect::<Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>>(); // TODO: am I actually getting all the txns?
 
-    let fills = parse_trades_from_openbook_txns(&mut txns);
+    let fills = parse_trades_from_openbook_txns(&mut txns, target_markets);
     if fills.len() > 0 {
         for fill in fills.into_iter() {
             if let Err(_) = fill_sender.send(fill).await {
@@ -112,7 +106,7 @@ pub async fn scrape_transactions(
         }
     }
 
-    Some(Signature::from_str(&last_sig.signature).unwrap())
+    Some(request_last_sig)
 }
 
 pub async fn fetch_market_infos(
@@ -181,9 +175,6 @@ pub async fn fetch_market_infos(
         .get_multiple_accounts_with_config(&mint_keys, rpc_config)
         .unwrap()
         .value;
-    // println!("{:?}", mint_results);
-    // println!("{:?}", mint_keys);
-    // println!("{:?}", mint_results.len());
     for i in 0..mint_results.len() {
         let mut mint_account = mint_results[i].as_ref().unwrap().clone();
         let mut mint_bytes: &[u8] = &mut mint_account.data[..];

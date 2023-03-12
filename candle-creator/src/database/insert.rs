@@ -1,16 +1,13 @@
 use chrono::Utc;
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use sqlx::{Pool, Postgres};
 use std::{
-    collections::hash_map::DefaultHasher,
+    collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
-    time::{Duration, Instant},
+    time::Instant,
 };
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
-use crate::{
-    trade_fetching::parsing::OpenBookFillEventLog,
-    utils::{AnyhowWrap, Config},
-};
+use crate::{trade_fetching::parsing::OpenBookFillEventLog, utils::AnyhowWrap};
 
 use super::Candle;
 
@@ -20,13 +17,12 @@ pub async fn persist_fill_events(
 ) {
     loop {
         let start = Instant::now();
-        let mut write_batch = Vec::new();
+        let mut write_batch = HashMap::new();
         while write_batch.len() < 10 || start.elapsed().as_secs() > 10 {
             match fill_receiver.try_recv() {
                 Ok(event) => {
-                    if !write_batch.contains(&event) {
-                        // O(n)
-                        write_batch.push(event)
+                    if !write_batch.contains_key(&event) {
+                        write_batch.insert(event, 0);
                     }
                 }
                 Err(TryRecvError::Empty) => break,
@@ -48,9 +44,9 @@ pub async fn persist_fill_events(
     }
 }
 
-fn build_fills_upsert_statement(events: Vec<OpenBookFillEventLog>) -> String {
+fn build_fills_upsert_statement(events: HashMap<OpenBookFillEventLog, u8>) -> String {
     let mut stmt = String::from("INSERT INTO fills (id, time, market, open_orders, open_orders_owner, bid, maker, native_qty_paid, native_qty_received, native_fee_or_rebate, fee_tier, order_id) VALUES");
-    for (idx, event) in events.iter().enumerate() {
+    for (idx, event) in events.keys().enumerate() {
         let mut hasher = DefaultHasher::new();
         event.hash(&mut hasher);
         let val_str = format!(
@@ -79,7 +75,6 @@ fn build_fills_upsert_statement(events: Vec<OpenBookFillEventLog>) -> String {
     let handle_conflict = "ON CONFLICT (id) DO UPDATE SET market=excluded.market";
 
     stmt = format!("{} {}", stmt, handle_conflict);
-    print!("{}", stmt);
     stmt
 }
 

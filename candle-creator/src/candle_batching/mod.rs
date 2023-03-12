@@ -1,27 +1,19 @@
 pub mod higher_order_candles;
 pub mod minute_candles;
 
-use std::cmp::{max, min};
-
-use chrono::{DateTime, Duration, DurationRound, Utc};
-use num_traits::{FromPrimitive, Zero};
-use sqlx::{types::Decimal, Pool, Postgres};
+use chrono::Duration;
+use sqlx::{Pool, Postgres};
 use strum::IntoEnumIterator;
 use tokio::{sync::mpsc::Sender, time::sleep};
 
 use crate::{
     candle_batching::minute_candles::batch_1m_candles,
-    database::{
-        fetch::{
-            fetch_candles_from, fetch_earliest_fill, fetch_fills_from, fetch_latest_finished_candle,
-        },
-        Candle, MarketInfo, PgOpenBookFill, Resolution,
-    },
+    database::{Candle, MarketInfo, Resolution},
 };
 
 use self::higher_order_candles::batch_higher_order_candles;
 
-pub fn DAY() -> Duration {
+pub fn day() -> Duration {
     Duration::days(1)
 }
 
@@ -30,7 +22,7 @@ pub async fn batch_candles(
     candles_sender: &Sender<Vec<Candle>>,
     markets: Vec<MarketInfo>,
 ) {
-    // tokio spawn a taks for every market
+    // TODO: tokio spawn a taks for every market
 
     loop {
         let m = MarketInfo {

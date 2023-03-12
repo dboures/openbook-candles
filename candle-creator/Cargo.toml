@@ -11,7 +11,7 @@ tokio-stream = "0.1"
 
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
-sqlx = { version = "0.6", features = [ "runtime-tokio-native-tls" , "postgres", "chrono", "decimal" ] }
+sqlx = { version = "0.6", features = [ "runtime-tokio-native-tls" , "postgres", "chrono", "decimal", "offline" ] }
 chrono = "0.4.23"
 
 solana-client = "=1.14.13"

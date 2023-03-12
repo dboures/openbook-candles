@@ -1,18 +1,7 @@
-use chrono::Utc;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-    time::{Duration, Instant},
-};
-use tokio::sync::mpsc::{error::TryRecvError, Receiver};
+use std::time::Duration;
 
-use crate::{
-    trade_fetching::parsing::OpenBookFillEventLog,
-    utils::{AnyhowWrap, Config},
-};
-
-use super::MarketInfo;
+use crate::utils::{AnyhowWrap, Config};
 
 pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool<Postgres>> {
     loop {
@@ -29,7 +18,7 @@ pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool<Postgre
     }
 }
 
-pub async fn setup_database(pool: &Pool<Postgres>, markets: Vec<MarketInfo>) -> anyhow::Result<()> {
+pub async fn setup_database(pool: &Pool<Postgres>) -> anyhow::Result<()> {
     let candles_table_fut = create_candles_table(pool);
     let fills_table_fut = create_fills_table(pool);
     let result = tokio::try_join!(candles_table_fut, fills_table_fut);
@@ -71,7 +60,12 @@ pub async fn create_candles_table(pool: &Pool<Postgres>) -> anyhow::Result<()> {
     ).execute(&mut tx).await?;
 
     sqlx::query!(
-        "ALTER TABLE candles ADD CONSTRAINT unique_candles UNIQUE (market, start_time, resolution)"
+        "DO $$
+            BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_candles') THEN
+                ALTER TABLE candles ADD CONSTRAINT unique_candles UNIQUE (market, start_time, resolution);
+            END IF;
+        END $$"
     )
     .execute(&mut tx)
     .await?;
@@ -110,8 +104,4 @@ pub async fn create_fills_table(pool: &Pool<Postgres>) -> anyhow::Result<()> {
         .await?;
 
     tx.commit().await.map_err_anyhow()
-}
-
-pub async fn save_candles() {
-    unimplemented!("TODO");
 }

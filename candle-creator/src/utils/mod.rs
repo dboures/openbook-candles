@@ -1,5 +1,5 @@
 use serde_derive::Deserialize;
-use std::{fs::File, io::Read};
+use std::fs::File;
 
 pub trait AnyhowWrap {
     type Value;
