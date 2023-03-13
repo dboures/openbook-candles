@@ -108,11 +108,11 @@ pub async fn persist_candles(pool: Pool<Postgres>, mut candles_receiver: Receive
 }
 
 fn build_candes_upsert_statement(candles: Vec<Candle>) -> String {
-    let mut stmt = String::from("INSERT INTO candles (market, start_time, end_time, resolution, open, close, high, low, volume, complete) VALUES");
+    let mut stmt = String::from("INSERT INTO candles (market_name, start_time, end_time, resolution, open, close, high, low, volume, complete) VALUES");
     for (idx, candle) in candles.iter().enumerate() {
         let val_str = format!(
             "(\'{}\', \'{}\', \'{}\', \'{}\', {}, {}, {}, {}, {}, {})",
-            candle.market,
+            candle.market_name,
             candle.start_time.to_rfc3339(),
             candle.end_time.to_rfc3339(),
             candle.resolution,
@@ -131,7 +131,7 @@ fn build_candes_upsert_statement(candles: Vec<Candle>) -> String {
         }
     }
 
-    let handle_conflict = "ON CONFLICT (market, start_time, resolution) 
+    let handle_conflict = "ON CONFLICT (market_name, start_time, resolution) 
     DO UPDATE SET 
     open=excluded.open, 
     close=excluded.close, 

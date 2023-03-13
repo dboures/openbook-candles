@@ -61,7 +61,7 @@ pub async fn fetch_fills_from(
 
 pub async fn fetch_latest_finished_candle(
     pool: &Pool<Postgres>,
-    market_address_string: &str,
+    market_name: &str,
     resolution: Resolution,
 ) -> anyhow::Result<Option<Candle>> {
     sqlx::query_as!(
@@ -70,7 +70,7 @@ pub async fn fetch_latest_finished_candle(
         start_time as "start_time!",
         end_time as "end_time!",
         resolution as "resolution!",
-        market as "market!",
+        market_name as "market_name!",
         open as "open!",
         close as "close!",
         high as "high!",
@@ -78,11 +78,11 @@ pub async fn fetch_latest_finished_candle(
         volume as "volume!",
         complete as "complete!"
         from candles
-        where market = $1
+        where market_name = $1
         and resolution = $2
         and complete = true
         ORDER BY start_time desc LIMIT 1"#,
-        market_address_string,
+        market_name,
         resolution.to_string()
     )
     .fetch_optional(pool)
@@ -92,7 +92,7 @@ pub async fn fetch_latest_finished_candle(
 
 pub async fn fetch_earliest_candle(
     pool: &Pool<Postgres>,
-    market_address_string: &str,
+    market_name: &str,
     resolution: Resolution,
 ) -> anyhow::Result<Option<Candle>> {
     sqlx::query_as!(
@@ -101,7 +101,7 @@ pub async fn fetch_earliest_candle(
         start_time as "start_time!",
         end_time as "end_time!",
         resolution as "resolution!",
-        market as "market!",
+        market_name as "market_name!",
         open as "open!",
         close as "close!",
         high as "high!",
@@ -109,10 +109,10 @@ pub async fn fetch_earliest_candle(
         volume as "volume!",
         complete as "complete!"
         from candles
-        where market = $1
+        where market_name = $1
         and resolution = $2
         ORDER BY start_time asc LIMIT 1"#,
-        market_address_string,
+        market_name,
         resolution.to_string()
     )
     .fetch_optional(pool)
@@ -133,7 +133,7 @@ pub async fn fetch_candles_from(
         start_time as "start_time!",
         end_time as "end_time!",
         resolution as "resolution!",
-        market as "market!",
+        market_name as "market_name!",
         open as "open!",
         close as "close!",
         high as "high!",
@@ -141,7 +141,7 @@ pub async fn fetch_candles_from(
         volume as "volume!",
         complete as "complete!"
         from candles
-        where market = $1
+        where market_name = $1
         and resolution = $2
         and start_time >= $3
         and end_time <= $4

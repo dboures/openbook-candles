@@ -15,9 +15,10 @@ pub async fn batch_1m_candles(
     pool: &Pool<Postgres>,
     market: MarketInfo,
 ) -> anyhow::Result<Vec<Candle>> {
-    let market_address_string = &market.address;
+    let market_name = &market.name;
+    let market_address = &market.address;
     let latest_candle =
-        fetch_latest_finished_candle(pool, market_address_string, Resolution::R1m).await?;
+        fetch_latest_finished_candle(pool, market_name, Resolution::R1m).await?;
 
     match latest_candle {
         Some(candle) => {
@@ -27,7 +28,7 @@ pub async fn batch_1m_candles(
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
             let mut fills =
-                fetch_fills_from(pool, market_address_string, start_time, end_time).await?;
+                fetch_fills_from(pool, market_address, start_time, end_time).await?;
             let candles = combine_fills_into_1m_candles(
                 &mut fills,
                 market,
@@ -38,10 +39,10 @@ pub async fn batch_1m_candles(
             Ok(candles)
         }
         None => {
-            let earliest_fill = fetch_earliest_fill(pool, market_address_string).await?;
+            let earliest_fill = fetch_earliest_fill(pool, market_address).await?;
 
             if earliest_fill.is_none() {
-                println!("No fills found for: {:?}", market_address_string);
+                println!("No fills found for: {:?}", market_name);
                 return Ok(Vec::new());
             }
 
@@ -54,7 +55,7 @@ pub async fn batch_1m_candles(
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
             let mut fills =
-                fetch_fills_from(pool, market_address_string, start_time, end_time).await?;
+                fetch_fills_from(pool, market_address, start_time, end_time).await?;
             let candles =
                 combine_fills_into_1m_candles(&mut fills, market, start_time, end_time, None);
             Ok(candles)
@@ -69,7 +70,7 @@ fn combine_fills_into_1m_candles(
     et: DateTime<Utc>,
     maybe_last_price: Option<Decimal>,
 ) -> Vec<Candle> {
-    let empty_candle = Candle::create_empty_candle(market.address, Resolution::R1m);
+    let empty_candle = Candle::create_empty_candle(market.name, Resolution::R1m);
 
     let minutes = (et - st).num_minutes();
     let mut candles = vec![empty_candle; minutes as usize];

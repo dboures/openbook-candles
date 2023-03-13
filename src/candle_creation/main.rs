@@ -1,11 +1,11 @@
 use std::{collections::HashMap, str::FromStr};
-use openbook_candles::candle_batching::batch_candles;
+use openbook_candles::candle_creation::candle_batching::batch_candles;
 use openbook_candles::database::{
     insert::{persist_candles, persist_fill_events},
     initialize::{connect_to_database, setup_database},
     Candle,
 }; 
-use openbook_candles::trade_fetching::{
+use openbook_candles::candle_creation::trade_fetching::{
     backfill::backfill,
     parsing::OpenBookFillEventLog,
     scrape::{fetch_market_infos, scrape},

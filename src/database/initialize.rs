@@ -40,7 +40,7 @@ pub async fn create_candles_table(pool: &Pool<Postgres>) -> anyhow::Result<()> {
     sqlx::query!(
         "CREATE TABLE IF NOT EXISTS candles (
             id serial,
-            market text,
+            market_name text,
             start_time timestamptz,
             end_time timestamptz,
             resolution text,
@@ -56,14 +56,14 @@ pub async fn create_candles_table(pool: &Pool<Postgres>) -> anyhow::Result<()> {
     .await?;
 
     sqlx::query!(
-        "CREATE INDEX IF NOT EXISTS idx_market_time_resolution ON candles (market, start_time, resolution)"
+        "CREATE INDEX IF NOT EXISTS idx_market_time_resolution ON candles (market_name, start_time, resolution)"
     ).execute(&mut tx).await?;
 
     sqlx::query!(
         "DO $$
             BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_candles') THEN
-                ALTER TABLE candles ADD CONSTRAINT unique_candles UNIQUE (market, start_time, resolution);
+                ALTER TABLE candles ADD CONSTRAINT unique_candles UNIQUE (market_name, start_time, resolution);
             END IF;
         END $$"
     )

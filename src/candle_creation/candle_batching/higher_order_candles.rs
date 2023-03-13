@@ -13,11 +13,11 @@ use crate::{
 
 pub async fn batch_higher_order_candles(
     pool: &Pool<Postgres>,
-    market_address_string: &str,
+    market_name: &str,
     resolution: Resolution,
 ) -> anyhow::Result<Vec<Candle>> {
     let latest_candle =
-        fetch_latest_finished_candle(pool, market_address_string, resolution).await?;
+        fetch_latest_finished_candle(pool, market_name, resolution).await?;
 
     match latest_candle {
         Some(candle) => {
@@ -27,7 +27,7 @@ pub async fn batch_higher_order_candles(
             // println!("start_time: {:?}", start_time);
             let mut constituent_candles = fetch_candles_from(
                 pool,
-                market_address_string,
+                market_name,
                 resolution.get_constituent_resolution(),
                 start_time,
                 end_time,
@@ -47,7 +47,7 @@ pub async fn batch_higher_order_candles(
         None => {
             let constituent_candle = fetch_earliest_candle(
                 pool,
-                market_address_string,
+                market_name,
                 resolution.get_constituent_resolution(),
             )
             .await?;
@@ -55,7 +55,7 @@ pub async fn batch_higher_order_candles(
                 println!(
                     "Batching {}, but no candles found for: {:?}, {}",
                     resolution,
-                    market_address_string,
+                    market_name,
                     resolution.get_constituent_resolution()
                 );
                 return Ok(Vec::new());
@@ -68,7 +68,7 @@ pub async fn batch_higher_order_candles(
 
             let mut constituent_candles = fetch_candles_from(
                 pool,
-                market_address_string,
+                market_name,
                 resolution.get_constituent_resolution(),
                 start_time,
                 end_time,
@@ -104,7 +104,7 @@ fn combine_into_higher_order_candles(
     let candles_len = constituent_candles.len();
 
     let empty_candle =
-        Candle::create_empty_candle(constituent_candles[0].market.clone(), target_resolution);
+        Candle::create_empty_candle(constituent_candles[0].market_name.clone(), target_resolution);
     let mut combined_candles =
         vec![empty_candle; (day().num_minutes() / duration.num_minutes()) as usize];
 

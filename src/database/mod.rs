@@ -76,7 +76,7 @@ impl Resolution {
 
 #[derive(Clone, Debug)]
 pub struct Candle {
-    pub market: String,
+    pub market_name: String,
     pub start_time: DateTime<Utc>,
     pub end_time: DateTime<Utc>,
     pub resolution: String,
@@ -89,9 +89,9 @@ pub struct Candle {
 }
 
 impl Candle {
-    pub fn create_empty_candle(market: String, resolution: Resolution) -> Candle {
+    pub fn create_empty_candle(market_name: String, resolution: Resolution) -> Candle {
         Candle {
-            market,
+            market_name,
             start_time: DateTime::from_utc(NaiveDateTime::MIN, Utc),
             end_time: DateTime::from_utc(NaiveDateTime::MIN, Utc),
             resolution: resolution.to_string(),
