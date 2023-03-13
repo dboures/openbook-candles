@@ -15,7 +15,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::{
     database::MarketInfo,
-    trade_fetching::parsing::MarketState,
+    candle_creation::trade_fetching::parsing::MarketState,
     utils::{Config, MarketConfig},
 };
 

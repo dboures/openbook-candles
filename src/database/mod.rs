@@ -5,7 +5,7 @@ use num_traits::Zero;
 use sqlx::types::Decimal;
 use strum::EnumIter;
 
-use crate::candle_batching::day;
+use crate::candle_creation::candle_batching::day;
 
 pub mod fetch;
 pub mod initialize;

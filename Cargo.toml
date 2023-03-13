@@ -1,9 +1,19 @@
 [package]
-name = "openbook-candle-creator"
+name = "openbook-candles"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "openbook_candles"
+path = "src/lib.rs"
+
+[[bin]]
+name = "creator"
+path = "src/candle_creation/main.rs"
+
+[[bin]]
+name = "server"
+path = "src/server/main.rs"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -28,6 +38,7 @@ async-trait = "0.1"
 anyhow = "1.0"
 log = "0.4"
 dotenv = "0.15.0"
+env_logger = "0.10.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
@@ -36,3 +47,5 @@ num-traits = "0.2"
 
 serum_dex = { version = "0.5.10", git = "https://github.com/openbook-dex/program.git", default-features=false, features = ["no-entrypoint", "program"] }
 anchor-lang = ">=0.25.0"
+
+actix-web = "4"

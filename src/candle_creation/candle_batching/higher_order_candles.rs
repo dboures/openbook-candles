@@ -4,7 +4,7 @@ use sqlx::{types::Decimal, Pool, Postgres};
 use std::cmp::{max, min};
 
 use crate::{
-    candle_batching::day,
+    candle_creation::candle_batching::day,
     database::{
         fetch::{fetch_candles_from, fetch_earliest_candle, fetch_latest_finished_candle},
         Candle, Resolution,

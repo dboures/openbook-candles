@@ -1,57 +1,5 @@
 {
   "db": "PostgreSQL",
-  "101e71cebdce376dec54e861042d6ee0afd56ecf79738886d85fe289059c5902": {
-    "describe": {
-      "columns": [
-        {
-          "name": "time!",
-          "ordinal": 0,
-          "type_info": "Timestamptz"
-        },
-        {
-          "name": "bid!",
-          "ordinal": 1,
-          "type_info": "Bool"
-        },
-        {
-          "name": "maker!",
-          "ordinal": 2,
-          "type_info": "Bool"
-        },
-        {
-          "name": "native_qty_paid!",
-          "ordinal": 3,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "native_qty_received!",
-          "ordinal": 4,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "native_fee_or_rebate!",
-          "ordinal": 5,
-          "type_info": "Numeric"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Left": [
-          "Text",
-          "Timestamptz",
-          "Timestamptz"
-        ]
-      }
-    },
-    "query": "SELECT \n         time as \"time!\",\n         bid as \"bid!\",\n         maker as \"maker!\",\n         native_qty_paid as \"native_qty_paid!\",\n         native_qty_received as \"native_qty_received!\",\n         native_fee_or_rebate as \"native_fee_or_rebate!\" \n         from fills \n         where market = $1\n         and time >= $2\n         and time < $3 \n         ORDER BY time asc"
-  },
   "35e8220c601aca620da1cfcb978c8b7a64dcbf15550521b418cf509015cd88d8": {
     "describe": {
       "columns": [],
@@ -81,6 +29,24 @@
       }
     },
     "query": "DO $$\n            BEGIN\n            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_candles') THEN\n                ALTER TABLE candles ADD CONSTRAINT unique_candles UNIQUE (market, start_time, resolution);\n            END IF;\n        END $$"
+  },
+  "63fd83accf07c969461c66ca26a28f506dbbc2e8c0b7d74d9a06ccf52aa1b8b6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "total",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "Select COUNT(*) as total from fills"
   },
   "817ee7903cb5095f85fb787beff04ace3a452cf8749205bb230e41d8c9e03c4a": {
     "describe": {
@@ -319,7 +285,59 @@
     },
     "query": "SELECT \n        start_time as \"start_time!\",\n        end_time as \"end_time!\",\n        resolution as \"resolution!\",\n        market as \"market!\",\n        open as \"open!\",\n        close as \"close!\",\n        high as \"high!\",\n        low as \"low!\",\n        volume as \"volume!\",\n        complete as \"complete!\"\n        from candles\n        where market = $1\n        and resolution = $2\n        and start_time >= $3\n        and end_time <= $4\n        and complete = true\n        ORDER BY start_time asc"
   },
-  "c1ed9567bf732245975182fbf216da5858f89df285f8a5f17fb58ac1f33cc0e9": {
+  "b71ec8e5c041cec2c83778f31f7dc723cc1b5a8b6bb0e2c7f8ba7ef31f117965": {
+    "describe": {
+      "columns": [
+        {
+          "name": "time!",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "bid!",
+          "ordinal": 1,
+          "type_info": "Bool"
+        },
+        {
+          "name": "maker!",
+          "ordinal": 2,
+          "type_info": "Bool"
+        },
+        {
+          "name": "native_qty_paid!",
+          "ordinal": 3,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "native_qty_received!",
+          "ordinal": 4,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "native_fee_or_rebate!",
+          "ordinal": 5,
+          "type_info": "Numeric"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Timestamptz",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "SELECT \n         time as \"time!\",\n         bid as \"bid!\",\n         maker as \"maker!\",\n         native_qty_paid as \"native_qty_paid!\",\n         native_qty_received as \"native_qty_received!\",\n         native_fee_or_rebate as \"native_fee_or_rebate!\" \n         from fills \n         where market = $1\n         and time >= $2\n         and time < $3 \n         and maker = true\n         ORDER BY time asc"
+  },
+  "dc7c7c04b6870b9617e1e869aa4b7027baddaeeb22f2792f2e9c40f643f863c7": {
     "describe": {
       "columns": [
         {
@@ -367,7 +385,7 @@
         ]
       }
     },
-    "query": "SELECT \n         time as \"time!\",\n         bid as \"bid!\",\n         maker as \"maker!\",\n         native_qty_paid as \"native_qty_paid!\",\n         native_qty_received as \"native_qty_received!\",\n         native_fee_or_rebate as \"native_fee_or_rebate!\" \n         from fills \n         where market = $1 \n         ORDER BY time asc LIMIT 1"
+    "query": "SELECT \n         time as \"time!\",\n         bid as \"bid!\",\n         maker as \"maker!\",\n         native_qty_paid as \"native_qty_paid!\",\n         native_qty_received as \"native_qty_received!\",\n         native_fee_or_rebate as \"native_fee_or_rebate!\" \n         from fills \n         where market = $1 \n         and maker = true\n         ORDER BY time asc LIMIT 1"
   },
   "ebf9f73491ea62c20a25245080abb0be928e22a0d622fafa48bb01db34e84b94": {
     "describe": {

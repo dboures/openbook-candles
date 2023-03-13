@@ -1,27 +1,19 @@
 use std::{collections::HashMap, str::FromStr};
-
-use crate::{
-    candle_batching::batch_candles,
-    database::{
-        insert::{persist_candles, persist_fill_events},
-        Candle,
-    },
-    trade_fetching::{
-        backfill::backfill,
-        parsing::OpenBookFillEventLog,
-        scrape::{fetch_market_infos, scrape},
-    },
-    utils::Config,
+use openbook_candles::candle_batching::batch_candles;
+use openbook_candles::database::{
+    insert::{persist_candles, persist_fill_events},
+    initialize::{connect_to_database, setup_database},
+    Candle,
+}; 
+use openbook_candles::trade_fetching::{
+    backfill::backfill,
+    parsing::OpenBookFillEventLog,
+    scrape::{fetch_market_infos, scrape},
 };
-use database::initialize::{connect_to_database, setup_database};
+use openbook_candles::utils::{Config, load_markets};
 use dotenv;
 use solana_sdk::pubkey::Pubkey;
 use tokio::sync::mpsc;
-
-mod candle_batching;
-mod database;
-mod trade_fetching;
-mod utils;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -36,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
         max_pg_pool_connections: 5,
     };
 
-    let markets = utils::load_markets("/Users/dboures/dev/openbook-candles/markets.json");
+    let markets = load_markets("/Users/dboures/dev/openbook-candles/markets.json");
     let market_infos = fetch_market_infos(&config, markets).await?;
     let mut target_markets = HashMap::new();
     for m in market_infos.clone() {

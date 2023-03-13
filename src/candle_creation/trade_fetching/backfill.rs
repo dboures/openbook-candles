@@ -5,7 +5,7 @@ use solana_transaction_status::UiTransactionEncoding;
 use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
 
-use crate::trade_fetching::scrape::scrape_transactions;
+use crate::candle_creation::trade_fetching::scrape::scrape_transactions;
 
 use super::parsing::OpenBookFillEventLog;
 

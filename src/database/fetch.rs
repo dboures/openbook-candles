@@ -20,6 +20,7 @@ pub async fn fetch_earliest_fill(
          native_fee_or_rebate as "native_fee_or_rebate!" 
          from fills 
          where market = $1 
+         and maker = true
          ORDER BY time asc LIMIT 1"#,
         market_address_string
     )
@@ -47,6 +48,7 @@ pub async fn fetch_fills_from(
          where market = $1
          and time >= $2
          and time < $3 
+         and maker = true
          ORDER BY time asc"#,
         market_address_string,
         start_time,

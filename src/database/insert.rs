@@ -7,7 +7,7 @@ use std::{
 };
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
-use crate::{trade_fetching::parsing::OpenBookFillEventLog, utils::AnyhowWrap};
+use crate::{candle_creation::trade_fetching::parsing::OpenBookFillEventLog, utils::AnyhowWrap};
 
 use super::Candle;
 
