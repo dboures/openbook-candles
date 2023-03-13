@@ -1,18 +1,19 @@
-use std::{collections::HashMap, str::FromStr};
+use dotenv;
 use openbook_candles::candle_creation::candle_batching::batch_candles;
-use openbook_candles::database::{
-    insert::{persist_candles, persist_fill_events},
-    initialize::{connect_to_database, setup_database},
-    Candle,
-}; 
 use openbook_candles::candle_creation::trade_fetching::{
     backfill::backfill,
-    parsing::OpenBookFillEventLog,
     scrape::{fetch_market_infos, scrape},
 };
-use openbook_candles::utils::{Config, load_markets};
-use dotenv;
+use openbook_candles::database::{
+    initialize::{connect_to_database, setup_database},
+    insert::{persist_candles, persist_fill_events},
+    Candle,
+};
+use openbook_candles::structs::markets::load_markets;
+use openbook_candles::structs::openbook::OpenBookFillEventLog;
+use openbook_candles::utils::{Config};
 use solana_sdk::pubkey::Pubkey;
+use std::{collections::HashMap, str::FromStr};
 use tokio::sync::mpsc;
 
 #[tokio::main]
@@ -21,11 +22,12 @@ async fn main() -> anyhow::Result<()> {
 
     let rpc_url: String = dotenv::var("RPC_URL").unwrap();
     let database_url: String = dotenv::var("DATABASE_URL").unwrap();
+    let max_pg_pool_connections: u32 = dotenv::var("MAX_PG_POOL_CONNS_WORKER").unwrap().parse::<u32>().unwrap();
 
     let config = Config {
         rpc_url: rpc_url.clone(),
         database_url,
-        max_pg_pool_connections: 5,
+        max_pg_pool_connections,
     };
 
     let markets = load_markets("/Users/dboures/dev/openbook-candles/markets.json");

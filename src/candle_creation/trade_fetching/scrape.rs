@@ -14,12 +14,10 @@ use std::{collections::HashMap, str::FromStr, time::Duration as WaitDuration};
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    database::MarketInfo,
-    candle_creation::trade_fetching::parsing::MarketState,
-    utils::{Config, MarketConfig},
+    utils::{Config}, structs::{openbook::{OpenBookFillEventLog, MarketState}, markets::{MarketInfo, MarketConfig}},
 };
 
-use super::parsing::{parse_trades_from_openbook_txns, OpenBookFillEventLog};
+use super::parsing::{parse_trades_from_openbook_txns};
 
 pub async fn scrape(
     config: &Config,

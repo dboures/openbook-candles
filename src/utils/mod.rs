@@ -1,5 +1,8 @@
 use serde_derive::Deserialize;
+use sqlx::{Pool, Postgres};
 use std::fs::File;
+
+use crate::structs::markets::MarketInfo;
 
 pub trait AnyhowWrap {
     type Value;
@@ -20,13 +23,9 @@ pub struct Config {
     pub max_pg_pool_connections: u32,
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct MarketConfig {
-    pub name: String,
-    pub address: String,
+pub struct WebContext {
+    pub markets: Vec<MarketInfo>,
+    pub pool: Pool<Postgres>
 }
 
-pub fn load_markets(path: &str) -> Vec<MarketConfig> {
-    let reader = File::open(path).unwrap();
-    serde_json::from_reader(reader).unwrap()
-}
+

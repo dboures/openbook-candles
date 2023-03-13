@@ -122,7 +122,7 @@ pub async fn fetch_earliest_candle(
 
 pub async fn fetch_candles_from(
     pool: &Pool<Postgres>,
-    market_address_string: &str,
+    market_name: &str,
     resolution: Resolution,
     start_time: DateTime<Utc>,
     end_time: DateTime<Utc>,
@@ -147,7 +147,43 @@ pub async fn fetch_candles_from(
         and end_time <= $4
         and complete = true
         ORDER BY start_time asc"#,
-        market_address_string,
+        market_name,
+        resolution.to_string(),
+        start_time,
+        end_time
+    )
+    .fetch_all(pool)
+    .await
+    .map_err_anyhow()
+}
+
+pub async fn fetch_tradingview_candles(
+    pool: &Pool<Postgres>,
+    market_name: &str,
+    resolution: Resolution,
+    start_time: DateTime<Utc>,
+    end_time: DateTime<Utc>,
+) -> anyhow::Result<Vec<Candle>> {
+    sqlx::query_as!(
+        Candle,
+        r#"SELECT 
+        start_time as "start_time!",
+        end_time as "end_time!",
+        resolution as "resolution!",
+        market_name as "market_name!",
+        open as "open!",
+        close as "close!",
+        high as "high!",
+        low as "low!",
+        volume as "volume!",
+        complete as "complete!"
+        from candles
+        where market_name = $1
+        and resolution = $2
+        and start_time >= $3
+        and end_time <= $4
+        ORDER BY start_time asc"#, // TODO: order?
+        market_name,
         resolution.to_string(),
         start_time,
         end_time

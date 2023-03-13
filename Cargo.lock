@@ -3498,6 +3498,7 @@ dependencies = [
  "async-trait",
  "borsh 0.9.3",
  "chrono",
+ "derive_more",
  "dotenv",
  "env_logger 0.10.0",
  "jsonrpc-core-client",

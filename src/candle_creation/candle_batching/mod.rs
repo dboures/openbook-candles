@@ -8,14 +8,12 @@ use tokio::{sync::mpsc::Sender, time::sleep};
 
 use crate::{
     candle_creation::candle_batching::minute_candles::batch_1m_candles,
-    database::{Candle, MarketInfo, Resolution},
+    database::{Candle}, structs::{markets::MarketInfo, resolution::Resolution},
 };
 
 use self::higher_order_candles::batch_higher_order_candles;
 
-pub fn day() -> Duration {
-    Duration::days(1)
-}
+
 
 pub async fn batch_candles(
     pool: Pool<Postgres>,

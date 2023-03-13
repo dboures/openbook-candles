@@ -4,11 +4,10 @@ use sqlx::{types::Decimal, Pool, Postgres};
 use std::cmp::{max, min};
 
 use crate::{
-    candle_creation::candle_batching::day,
     database::{
         fetch::{fetch_candles_from, fetch_earliest_candle, fetch_latest_finished_candle},
-        Candle, Resolution,
-    },
+        Candle,
+    }, structs::resolution::{day, Resolution},
 };
 
 pub async fn batch_higher_order_candles(
@@ -16,8 +15,7 @@ pub async fn batch_higher_order_candles(
     market_name: &str,
     resolution: Resolution,
 ) -> anyhow::Result<Vec<Candle>> {
-    let latest_candle =
-        fetch_latest_finished_candle(pool, market_name, resolution).await?;
+    let latest_candle = fetch_latest_finished_candle(pool, market_name, resolution).await?;
 
     match latest_candle {
         Some(candle) => {
@@ -45,12 +43,9 @@ pub async fn batch_higher_order_candles(
             Ok(combined_candles)
         }
         None => {
-            let constituent_candle = fetch_earliest_candle(
-                pool,
-                market_name,
-                resolution.get_constituent_resolution(),
-            )
-            .await?;
+            let constituent_candle =
+                fetch_earliest_candle(pool, market_name, resolution.get_constituent_resolution())
+                    .await?;
             if constituent_candle.is_none() {
                 println!(
                     "Batching {}, but no candles found for: {:?}, {}",
@@ -103,8 +98,10 @@ fn combine_into_higher_order_candles(
 
     let candles_len = constituent_candles.len();
 
-    let empty_candle =
-        Candle::create_empty_candle(constituent_candles[0].market_name.clone(), target_resolution);
+    let empty_candle = Candle::create_empty_candle(
+        constituent_candles[0].market_name.clone(),
+        target_resolution,
+    );
     let mut combined_candles =
         vec![empty_candle; (day().num_minutes() / duration.num_minutes()) as usize];
 

@@ -4,12 +4,10 @@ use chrono::{DateTime, Duration, DurationRound, Utc};
 use num_traits::{FromPrimitive, Zero};
 use sqlx::{types::Decimal, Pool, Postgres};
 
-use crate::database::{
+use crate::{database::{
     fetch::{fetch_earliest_fill, fetch_fills_from, fetch_latest_finished_candle},
-    Candle, MarketInfo, PgOpenBookFill, Resolution,
-};
-
-use super::day;
+    Candle, PgOpenBookFill, 
+}, structs::{markets::MarketInfo, resolution::{Resolution, day}}};
 
 pub async fn batch_1m_candles(
     pool: &Pool<Postgres>,
@@ -17,8 +15,7 @@ pub async fn batch_1m_candles(
 ) -> anyhow::Result<Vec<Candle>> {
     let market_name = &market.name;
     let market_address = &market.address;
-    let latest_candle =
-        fetch_latest_finished_candle(pool, market_name, Resolution::R1m).await?;
+    let latest_candle = fetch_latest_finished_candle(pool, market_name, Resolution::R1m).await?;
 
     match latest_candle {
         Some(candle) => {
@@ -27,8 +24,7 @@ pub async fn batch_1m_candles(
                 start_time + day(),
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
-            let mut fills =
-                fetch_fills_from(pool, market_address, start_time, end_time).await?;
+            let mut fills = fetch_fills_from(pool, market_address, start_time, end_time).await?;
             let candles = combine_fills_into_1m_candles(
                 &mut fills,
                 market,
@@ -54,8 +50,7 @@ pub async fn batch_1m_candles(
                 start_time + day(),
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
-            let mut fills =
-                fetch_fills_from(pool, market_address, start_time, end_time).await?;
+            let mut fills = fetch_fills_from(pool, market_address, start_time, end_time).await?;
             let candles =
                 combine_fills_into_1m_candles(&mut fills, market, start_time, end_time, None);
             Ok(candles)
