@@ -2,11 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{Pool, Postgres};
 
 use crate::{
-    structs::{
-        candle::Candle,
-        openbook::{PgOpenBookFill, PgTrader},
-        resolution::Resolution,
-    },
+    structs::{candle::Candle, openbook::PgOpenBookFill, resolution::Resolution, trader::PgTrader},
     utils::AnyhowWrap,
 };
 
@@ -198,7 +194,7 @@ pub async fn fetch_tradingview_candles(
     .map_err_anyhow()
 }
 
-pub async fn fetch_top_traders_by_volume_from(
+pub async fn fetch_top_traders_by_base_volume_from(
     pool: &Pool<Postgres>,
     market_address_string: &str,
     start_time: DateTime<Utc>,
@@ -214,7 +210,7 @@ pub async fn fetch_top_traders_by_volume_from(
         sum(
           native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END
         ) as "raw_bid_size!"
-      FROM public."fills"
+      FROM fills
  WHERE  market = $1
         AND time >= $2
         AND time < $3
@@ -223,7 +219,8 @@ pub async fn fetch_top_traders_by_volume_from(
     sum(native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END) 
     + 
     sum(native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) 
-DESC "#,
+DESC 
+LIMIT 10000"#,
         market_address_string,
         start_time,
         end_time
@@ -233,4 +230,38 @@ DESC "#,
     .map_err_anyhow()
 }
 
-// pub async fn fetch_traders_above_x_dollars
+pub async fn fetch_top_traders_by_quote_volume_from(
+    pool: &Pool<Postgres>,
+    market_address_string: &str,
+    start_time: DateTime<Utc>,
+    end_time: DateTime<Utc>,
+) -> anyhow::Result<Vec<PgTrader>> {
+    sqlx::query_as!(
+        PgTrader,
+        r#"SELECT 
+        open_orders_owner, 
+        sum(
+            native_qty_received * CASE bid WHEN true THEN 0 WHEN false THEN 1 END
+        ) as "raw_ask_size!",
+        sum(
+            native_qty_paid * CASE bid WHEN true THEN 1 WHEN false THEN 0 END
+        ) as "raw_bid_size!"
+      FROM fills
+ WHERE  market = $1
+        AND time >= $2
+        AND time < $3
+ GROUP  BY open_orders_owner
+ ORDER  BY 
+    sum(native_qty_received * CASE bid WHEN true THEN 0 WHEN false THEN 1 END) 
+    + 
+    sum(native_qty_paid * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) 
+DESC  
+LIMIT 10000"#,
+        market_address_string,
+        start_time,
+        end_time
+    )
+    .fetch_all(pool)
+    .await
+    .map_err_anyhow()
+}

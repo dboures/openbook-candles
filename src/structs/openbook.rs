@@ -1,7 +1,6 @@
 use anchor_lang::{event, AnchorDeserialize, AnchorSerialize};
 use chrono::{DateTime, Utc};
-use num_traits::{FromPrimitive, ToPrimitive};
-use serde::Serialize;
+use num_traits::FromPrimitive;
 use solana_sdk::pubkey::Pubkey;
 use sqlx::types::Decimal;
 
@@ -31,19 +30,6 @@ pub struct PgOpenBookFill {
     pub native_qty_paid: Decimal,
     pub native_qty_received: Decimal,
     pub native_fee_or_rebate: Decimal,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PgTrader {
-    pub open_orders_owner: String,
-    pub raw_ask_size: Decimal,
-    pub raw_bid_size: Decimal,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct Trader {
-    pub pubkey: String,
-    pub volume_base_units: f64,
 }
 
 #[derive(Copy, Clone, AnchorDeserialize)]
@@ -129,17 +115,6 @@ pub fn calculate_fill_price_and_size(
     }
 }
 
-pub fn calculate_trader_volume(trader: PgTrader, base_decimals: u8) -> Trader {
-    let bid_size = trader.raw_bid_size / token_factor(base_decimals);
-    let ask_size = trader.raw_ask_size / token_factor(base_decimals);
-
-    Trader {
-        pubkey: trader.open_orders_owner,
-        volume_base_units: (bid_size + ask_size).to_f64().unwrap(),
-        // TODO: quote volume
-    }
-}
-
-fn token_factor(decimals: u8) -> Decimal {
+pub fn token_factor(decimals: u8) -> Decimal {
     Decimal::from_u64(10u64.pow(decimals as u32)).unwrap()
 }

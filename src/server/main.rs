@@ -1,8 +1,7 @@
 use actix_web::{
-    get,
     middleware::Logger,
     web::{self, Data},
-    App, HttpResponse, HttpServer, Responder,
+    App, HttpServer,
 };
 use candles::get_candles;
 use dotenv;
@@ -12,13 +11,13 @@ use openbook_candles::{
     structs::markets::load_markets,
     utils::{Config, WebContext},
 };
-use sqlx::{Pool, Postgres};
 use traders::get_top_traders_by_base_volume;
+
+use crate::traders::get_top_traders_by_quote_volume;
 
 mod candles;
 mod server_error;
 mod traders;
-
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -56,7 +55,7 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/api")
                     .service(get_candles)
                     .service(get_top_traders_by_base_volume)
-                    // .service(get_top_traders_by_quote_volume)
+                    .service(get_top_traders_by_quote_volume),
             )
     })
     .bind(("127.0.0.1", 8080))?

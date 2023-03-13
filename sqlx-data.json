@@ -1,5 +1,39 @@
 {
   "db": "PostgreSQL",
+  "21b633d5aec33394129b051ea1df0ee9ab097626d74d8943f6323f9fb42723b5": {
+    "describe": {
+      "columns": [
+        {
+          "name": "open_orders_owner",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "raw_ask_size!",
+          "ordinal": 1,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "raw_bid_size!",
+          "ordinal": 2,
+          "type_info": "Numeric"
+        }
+      ],
+      "nullable": [
+        false,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Timestamptz",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "SELECT \n        open_orders_owner, \n        sum(\n            native_qty_received * CASE bid WHEN true THEN 0 WHEN false THEN 1 END\n        ) as \"raw_ask_size!\",\n        sum(\n            native_qty_paid * CASE bid WHEN true THEN 1 WHEN false THEN 0 END\n        ) as \"raw_bid_size!\"\n      FROM fills\n WHERE  market = $1\n        AND time >= $2\n        AND time < $3\n GROUP  BY open_orders_owner\n ORDER  BY \n    sum(native_qty_received * CASE bid WHEN true THEN 0 WHEN false THEN 1 END) \n    + \n    sum(native_qty_paid * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) \nDESC  \nLIMIT 10000"
+  },
   "35e8220c601aca620da1cfcb978c8b7a64dcbf15550521b418cf509015cd88d8": {
     "describe": {
       "columns": [],
@@ -269,6 +303,40 @@
     },
     "query": "SELECT \n        start_time as \"start_time!\",\n        end_time as \"end_time!\",\n        resolution as \"resolution!\",\n        market_name as \"market_name!\",\n        open as \"open!\",\n        close as \"close!\",\n        high as \"high!\",\n        low as \"low!\",\n        volume as \"volume!\",\n        complete as \"complete!\"\n        from candles\n        where market_name = $1\n        and resolution = $2\n        and start_time >= $3\n        and end_time <= $4\n        and complete = true\n        ORDER BY start_time asc"
   },
+  "aee3a3e04f837bd62e263452bfbaf5d7dff271799c80d5efd22a54954ac212c4": {
+    "describe": {
+      "columns": [
+        {
+          "name": "open_orders_owner",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "raw_ask_size!",
+          "ordinal": 1,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "raw_bid_size!",
+          "ordinal": 2,
+          "type_info": "Numeric"
+        }
+      ],
+      "nullable": [
+        false,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Timestamptz",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "SELECT \n        open_orders_owner, \n        sum(\n          native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END\n        ) as \"raw_ask_size!\",\n        sum(\n          native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END\n        ) as \"raw_bid_size!\"\n      FROM fills\n WHERE  market = $1\n        AND time >= $2\n        AND time < $3\n GROUP  BY open_orders_owner\n ORDER  BY \n    sum(native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END) \n    + \n    sum(native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) \nDESC \nLIMIT 10000"
+  },
   "b259d64b388eb675b727ee511529472177b59ea616041360217afc2d928f33ed": {
     "describe": {
       "columns": [],
@@ -330,40 +398,6 @@
       }
     },
     "query": "SELECT \n         time as \"time!\",\n         bid as \"bid!\",\n         maker as \"maker!\",\n         native_qty_paid as \"native_qty_paid!\",\n         native_qty_received as \"native_qty_received!\",\n         native_fee_or_rebate as \"native_fee_or_rebate!\" \n         from fills \n         where market = $1\n         and time >= $2\n         and time < $3 \n         and maker = true\n         ORDER BY time asc"
-  },
-  "dc367af7bb8da9d57033833da06567f3f3cfdcff72e5b140ccd3355f91b4c5a7": {
-    "describe": {
-      "columns": [
-        {
-          "name": "open_orders_owner",
-          "ordinal": 0,
-          "type_info": "Text"
-        },
-        {
-          "name": "raw_ask_size!",
-          "ordinal": 1,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "raw_bid_size!",
-          "ordinal": 2,
-          "type_info": "Numeric"
-        }
-      ],
-      "nullable": [
-        false,
-        null,
-        null
-      ],
-      "parameters": {
-        "Left": [
-          "Text",
-          "Timestamptz",
-          "Timestamptz"
-        ]
-      }
-    },
-    "query": "SELECT \n        open_orders_owner, \n        sum(\n          native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END\n        ) as \"raw_ask_size!\",\n        sum(\n          native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END\n        ) as \"raw_bid_size!\"\n      FROM public.\"fills\"\n WHERE  market = $1\n        AND time >= $2\n        AND time < $3\n GROUP  BY open_orders_owner\n ORDER  BY \n    sum(native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END) \n    + \n    sum(native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) \nDESC "
   },
   "dc7c7c04b6870b9617e1e869aa4b7027baddaeeb22f2792f2e9c40f643f863c7": {
     "describe": {
