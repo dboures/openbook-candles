@@ -58,6 +58,83 @@
     },
     "query": "CREATE INDEX IF NOT EXISTS idx_market_time ON fills (market, time)"
   },
+  "866773102b03b002e9d0535d3173f36264e1d30a46a5ec8240b0ea8076d6d1c5": {
+    "describe": {
+      "columns": [
+        {
+          "name": "start_time!",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "end_time!",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "resolution!",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "market_name!",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "open!",
+          "ordinal": 4,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "close!",
+          "ordinal": 5,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "high!",
+          "ordinal": 6,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "low!",
+          "ordinal": 7,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "volume!",
+          "ordinal": 8,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "complete!",
+          "ordinal": 9,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text",
+          "Timestamptz",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "SELECT \n        start_time as \"start_time!\",\n        end_time as \"end_time!\",\n        resolution as \"resolution!\",\n        market_name as \"market_name!\",\n        open as \"open!\",\n        close as \"close!\",\n        high as \"high!\",\n        low as \"low!\",\n        volume as \"volume!\",\n        complete as \"complete!\"\n        from candles\n        where market_name = $1\n        and resolution = $2\n        and start_time >= $3\n        and end_time <= $4\n        ORDER BY start_time asc"
+  },
   "98d4c97eeb4f0d14fd9284a968e88837456117a1c1995df37e615902b482ff10": {
     "describe": {
       "columns": [
