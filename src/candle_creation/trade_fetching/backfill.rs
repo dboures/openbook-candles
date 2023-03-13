@@ -1,14 +1,17 @@
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
-use solana_client::{rpc_client::RpcClient, rpc_config::RpcTransactionConfig};
+use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcTransactionConfig};
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::UiTransactionEncoding;
 use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
 
-use crate::{candle_creation::trade_fetching::scrape::scrape_transactions, structs::openbook::OpenBookFillEventLog};
+use crate::{
+    candle_creation::trade_fetching::scrape::scrape_transactions,
+    structs::openbook::OpenBookFillEventLog,
+};
 
 pub async fn backfill(
-    rpc_url: &String,
+    rpc_url: String,
     fill_sender: &Sender<OpenBookFillEventLog>,
     target_markets: &HashMap<Pubkey, u8>,
 ) {
@@ -31,9 +34,12 @@ pub async fn backfill(
             commitment: Some(CommitmentConfig::confirmed()),
             max_supported_transaction_version: Some(0),
         };
-        match rpc_client.get_transaction_with_config(&last_sig_option.unwrap(), txn_config) {
+        match rpc_client
+            .get_transaction_with_config(&last_sig_option.unwrap(), txn_config)
+            .await
+        {
             Ok(txn) => {
-                let unix_sig_time = rpc_client.get_block_time(txn.slot).unwrap();
+                let unix_sig_time = rpc_client.get_block_time(txn.slot).await.unwrap();
                 if unix_sig_time < end_time {
                     break;
                 }

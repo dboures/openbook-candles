@@ -8,12 +8,10 @@ use tokio::{sync::mpsc::Sender, time::sleep};
 
 use crate::{
     candle_creation::candle_batching::minute_candles::batch_1m_candles,
-    database::{Candle}, structs::{markets::MarketInfo, resolution::Resolution},
+    structs::{candle::Candle, markets::MarketInfo, resolution::Resolution},
 };
 
 use self::higher_order_candles::batch_higher_order_candles;
-
-
 
 pub async fn batch_candles(
     pool: Pool<Postgres>,

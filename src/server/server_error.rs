@@ -17,8 +17,8 @@ pub enum ServerError {
     DbQueryError,
     #[display(fmt = "Error getting connection")]
     DbPoolError,
-    #[display(fmt = "Raw market not found")]
-    RawMarketNotFound,
+    #[display(fmt = "Market not found")]
+    MarketNotFound,
     #[display(fmt = "Request symbol not found")]
     SymbolNotFound,
 }
@@ -37,7 +37,7 @@ impl error::ResponseError for ServerError {
             ServerError::WrongResolution => StatusCode::BAD_REQUEST,
             ServerError::DbQueryError => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::DbPoolError => StatusCode::INTERNAL_SERVER_ERROR,
-            ServerError::RawMarketNotFound => StatusCode::BAD_REQUEST,
+            ServerError::MarketNotFound => StatusCode::BAD_REQUEST,
             ServerError::SymbolNotFound => StatusCode::BAD_REQUEST,
         }
     }

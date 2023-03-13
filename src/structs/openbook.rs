@@ -1,5 +1,9 @@
 use anchor_lang::{event, AnchorDeserialize, AnchorSerialize};
+use chrono::{DateTime, Utc};
+use num_traits::{FromPrimitive, ToPrimitive};
+use serde::Serialize;
 use solana_sdk::pubkey::Pubkey;
+use sqlx::types::Decimal;
 
 #[event]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -17,6 +21,29 @@ pub struct OpenBookFillEventLog {
     pub fee_tier: u8,
     pub client_order_id: Option<u64>,
     pub referrer_rebate: Option<u64>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct PgOpenBookFill {
+    pub time: DateTime<Utc>,
+    pub bid: bool,
+    pub maker: bool,
+    pub native_qty_paid: Decimal,
+    pub native_qty_received: Decimal,
+    pub native_fee_or_rebate: Decimal,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PgTrader {
+    pub open_orders_owner: String,
+    pub raw_ask_size: Decimal,
+    pub raw_bid_size: Decimal,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Trader {
+    pub pubkey: String,
+    pub volume_base_units: f64,
 }
 
 #[derive(Copy, Clone, AnchorDeserialize)]
@@ -72,4 +99,47 @@ pub struct MarketState {
     pub fee_rate_bps: u64,
     // 46
     pub referrer_rebates_accrued: u64,
+}
+
+pub fn calculate_fill_price_and_size(
+    fill: PgOpenBookFill,
+    base_decimals: u8,
+    quote_decimals: u8,
+) -> (Decimal, Decimal) {
+    if fill.bid {
+        let price_before_fees = if fill.maker {
+            fill.native_qty_paid + fill.native_fee_or_rebate
+        } else {
+            fill.native_qty_paid - fill.native_fee_or_rebate
+        };
+        let price = (price_before_fees * token_factor(base_decimals))
+            / (token_factor(quote_decimals) * fill.native_qty_received);
+        let size = fill.native_qty_received / token_factor(base_decimals);
+        (price, size)
+    } else {
+        let price_before_fees = if fill.maker {
+            fill.native_qty_received - fill.native_fee_or_rebate
+        } else {
+            fill.native_qty_received + fill.native_fee_or_rebate
+        };
+        let price = (price_before_fees * token_factor(base_decimals))
+            / (token_factor(quote_decimals) * fill.native_qty_paid);
+        let size = fill.native_qty_paid / token_factor(base_decimals);
+        (price, size)
+    }
+}
+
+pub fn calculate_trader_volume(trader: PgTrader, base_decimals: u8) -> Trader {
+    let bid_size = trader.raw_bid_size / token_factor(base_decimals);
+    let ask_size = trader.raw_ask_size / token_factor(base_decimals);
+
+    Trader {
+        pubkey: trader.open_orders_owner,
+        volume_base_units: (bid_size + ask_size).to_f64().unwrap(),
+        // TODO: quote volume
+    }
+}
+
+fn token_factor(decimals: u8) -> Decimal {
+    Decimal::from_u64(10u64.pow(decimals as u32)).unwrap()
 }

@@ -2,7 +2,7 @@ use chrono::Utc;
 use num_traits::ToPrimitive;
 use serde::Serialize;
 
-use crate::database::Candle;
+use super::candle::Candle;
 
 #[derive(Serialize)]
 pub struct TvResponse {
@@ -49,8 +49,6 @@ impl TvResponse {
         assert_eq!(open.len(), low.len());
         assert_eq!(low.len(), high.len());
         assert_eq!(volume.len(), time.len());
-
-        let len = time.len();
 
         TvResponse {
             status: "ok".to_owned(),

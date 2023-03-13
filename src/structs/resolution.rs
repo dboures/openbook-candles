@@ -1,5 +1,5 @@
-use std::fmt;
 use chrono::Duration;
+use std::fmt;
 use strum::EnumIter;
 
 #[derive(EnumIter, Copy, Clone, Eq, PartialEq)]

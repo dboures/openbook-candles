@@ -4,10 +4,15 @@ use chrono::{DateTime, Duration, DurationRound, Utc};
 use num_traits::{FromPrimitive, Zero};
 use sqlx::{types::Decimal, Pool, Postgres};
 
-use crate::{database::{
-    fetch::{fetch_earliest_fill, fetch_fills_from, fetch_latest_finished_candle},
-    Candle, PgOpenBookFill, 
-}, structs::{markets::MarketInfo, resolution::{Resolution, day}}};
+use crate::{
+    database::fetch::{fetch_earliest_fill, fetch_fills_from, fetch_latest_finished_candle},
+    structs::{
+        candle::Candle,
+        markets::MarketInfo,
+        openbook::{calculate_fill_price_and_size, PgOpenBookFill},
+        resolution::{day, Resolution},
+    },
+};
 
 pub async fn batch_1m_candles(
     pool: &Pool<Postgres>,
@@ -105,36 +110,4 @@ fn combine_fills_into_1m_candles(
     }
 
     candles
-}
-
-fn calculate_fill_price_and_size(
-    fill: PgOpenBookFill,
-    base_decimals: u8,
-    quote_decimals: u8,
-) -> (Decimal, Decimal) {
-    if fill.bid {
-        let price_before_fees = if fill.maker {
-            fill.native_qty_paid + fill.native_fee_or_rebate
-        } else {
-            fill.native_qty_paid - fill.native_fee_or_rebate
-        };
-        let price = (price_before_fees * token_factor(base_decimals))
-            / (token_factor(quote_decimals) * fill.native_qty_received);
-        let size = fill.native_qty_received / token_factor(base_decimals);
-        (price, size)
-    } else {
-        let price_before_fees = if fill.maker {
-            fill.native_qty_received - fill.native_fee_or_rebate
-        } else {
-            fill.native_qty_received + fill.native_fee_or_rebate
-        };
-        let price = (price_before_fees * token_factor(base_decimals))
-            / (token_factor(quote_decimals) * fill.native_qty_paid);
-        let size = fill.native_qty_paid / token_factor(base_decimals);
-        (price, size)
-    }
-}
-
-fn token_factor(decimals: u8) -> Decimal {
-    Decimal::from_u64(10u64.pow(decimals as u32)).unwrap()
 }

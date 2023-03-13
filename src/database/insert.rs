@@ -7,9 +7,10 @@ use std::{
 };
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
-use crate::{utils::AnyhowWrap, structs::openbook::OpenBookFillEventLog};
-
-use super::Candle;
+use crate::{
+    structs::{candle::Candle, openbook::OpenBookFillEventLog},
+    utils::AnyhowWrap,
+};
 
 pub async fn persist_fill_events(
     pool: &Pool<Postgres>,

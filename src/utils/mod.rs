@@ -1,6 +1,6 @@
+use chrono::{NaiveDateTime, Utc};
 use serde_derive::Deserialize;
 use sqlx::{Pool, Postgres};
-use std::fs::File;
 
 use crate::structs::markets::MarketInfo;
 
@@ -25,7 +25,9 @@ pub struct Config {
 
 pub struct WebContext {
     pub markets: Vec<MarketInfo>,
-    pub pool: Pool<Postgres>
+    pub pool: Pool<Postgres>,
 }
 
-
+pub fn to_timestampz(seconds: u64) -> chrono::DateTime<Utc> {
+    chrono::DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(seconds as i64, 0), Utc)
+}

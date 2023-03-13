@@ -4,10 +4,11 @@ use sqlx::{types::Decimal, Pool, Postgres};
 use std::cmp::{max, min};
 
 use crate::{
-    database::{
-        fetch::{fetch_candles_from, fetch_earliest_candle, fetch_latest_finished_candle},
-        Candle,
-    }, structs::resolution::{day, Resolution},
+    database::fetch::{fetch_candles_from, fetch_earliest_candle, fetch_latest_finished_candle},
+    structs::{
+        candle::Candle,
+        resolution::{day, Resolution},
+    },
 };
 
 pub async fn batch_higher_order_candles(

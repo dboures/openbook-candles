@@ -1,5 +1,5 @@
-use std::fs::File;
 use serde::Deserialize;
+use std::fs::File;
 
 #[derive(Debug, Clone)]
 pub struct MarketInfo {
@@ -22,4 +22,8 @@ pub struct MarketConfig {
 pub fn load_markets(path: &str) -> Vec<MarketConfig> {
     let reader = File::open(path).unwrap();
     serde_json::from_reader(reader).unwrap()
+}
+
+pub fn valid_market(market_name: &str, markets: &Vec<MarketInfo>) -> bool {
+    markets.iter().any(|x| x.name == market_name)
 }

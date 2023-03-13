@@ -20,24 +20,6 @@
     },
     "query": "CREATE INDEX IF NOT EXISTS idx_id_market ON fills (id, market)"
   },
-  "63fd83accf07c969461c66ca26a28f506dbbc2e8c0b7d74d9a06ccf52aa1b8b6": {
-    "describe": {
-      "columns": [
-        {
-          "name": "total",
-          "ordinal": 0,
-          "type_info": "Int8"
-        }
-      ],
-      "nullable": [
-        null
-      ],
-      "parameters": {
-        "Left": []
-      }
-    },
-    "query": "Select COUNT(*) as total from fills"
-  },
   "6658c0121e5a7defbd1fe7c549ca0a957b188b9eb1837573a05d0e6476ef945a": {
     "describe": {
       "columns": [],
@@ -348,6 +330,40 @@
       }
     },
     "query": "SELECT \n         time as \"time!\",\n         bid as \"bid!\",\n         maker as \"maker!\",\n         native_qty_paid as \"native_qty_paid!\",\n         native_qty_received as \"native_qty_received!\",\n         native_fee_or_rebate as \"native_fee_or_rebate!\" \n         from fills \n         where market = $1\n         and time >= $2\n         and time < $3 \n         and maker = true\n         ORDER BY time asc"
+  },
+  "dc367af7bb8da9d57033833da06567f3f3cfdcff72e5b140ccd3355f91b4c5a7": {
+    "describe": {
+      "columns": [
+        {
+          "name": "open_orders_owner",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "raw_ask_size!",
+          "ordinal": 1,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "raw_bid_size!",
+          "ordinal": 2,
+          "type_info": "Numeric"
+        }
+      ],
+      "nullable": [
+        false,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Timestamptz",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "SELECT \n        open_orders_owner, \n        sum(\n          native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END\n        ) as \"raw_ask_size!\",\n        sum(\n          native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END\n        ) as \"raw_bid_size!\"\n      FROM public.\"fills\"\n WHERE  market = $1\n        AND time >= $2\n        AND time < $3\n GROUP  BY open_orders_owner\n ORDER  BY \n    sum(native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END) \n    + \n    sum(native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) \nDESC "
   },
   "dc7c7c04b6870b9617e1e869aa4b7027baddaeeb22f2792f2e9c40f643f863c7": {
     "describe": {

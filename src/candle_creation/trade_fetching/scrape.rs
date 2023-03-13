@@ -1,8 +1,10 @@
 use anchor_lang::AnchorDeserialize;
+use futures::future::join_all;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     client_error::Result as ClientResult,
-    rpc_client::{GetConfirmedSignaturesForAddress2Config, RpcClient},
+    nonblocking::rpc_client::RpcClient,
+    rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_config::{RpcAccountInfoConfig, RpcTransactionConfig},
 };
 use solana_sdk::{
@@ -14,18 +16,22 @@ use std::{collections::HashMap, str::FromStr, time::Duration as WaitDuration};
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    utils::{Config}, structs::{openbook::{OpenBookFillEventLog, MarketState}, markets::{MarketInfo, MarketConfig}},
+    structs::{
+        markets::{MarketConfig, MarketInfo},
+        openbook::{MarketState, OpenBookFillEventLog},
+    },
+    utils::Config,
 };
 
-use super::parsing::{parse_trades_from_openbook_txns};
+use super::parsing::parse_trades_from_openbook_txns;
 
 pub async fn scrape(
     config: &Config,
     fill_sender: &Sender<OpenBookFillEventLog>,
     target_markets: &HashMap<Pubkey, u8>,
 ) {
-    let url = &config.rpc_url;
-    let rpc_client = RpcClient::new_with_commitment(url, CommitmentConfig::processed());
+    let rpc_client =
+        RpcClient::new_with_commitment(config.rpc_url.clone(), CommitmentConfig::processed());
 
     let before_slot = None;
     loop {
@@ -55,10 +61,13 @@ pub async fn scrape_transactions(
         commitment: Some(CommitmentConfig::confirmed()),
     };
 
-    let mut sigs = match rpc_client.get_signatures_for_address_with_config(
-        &Pubkey::from_str("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX").unwrap(),
-        rpc_config,
-    ) {
+    let mut sigs = match rpc_client
+        .get_signatures_for_address_with_config(
+            &Pubkey::from_str("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX").unwrap(),
+            rpc_config,
+        )
+        .await
+    {
         Ok(s) => s,
         Err(e) => {
             println!("Error in get_signatures_for_address_with_config: {}", e);
@@ -85,15 +94,17 @@ pub async fn scrape_transactions(
         max_supported_transaction_version: Some(0),
     };
 
-    let mut txns = sigs
+    let signatures: Vec<_> = sigs
         .into_iter()
-        .map(|sig| {
-            rpc_client.get_transaction_with_config(
-                &sig.signature.parse::<Signature>().unwrap(),
-                txn_config,
-            )
-        })
-        .collect::<Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>>(); // TODO: am I actually getting all the txns?
+        .map(|sig| sig.signature.parse::<Signature>().unwrap())
+        .collect();
+
+    let txn_futs: Vec<_> = signatures
+        .iter()
+        .map(|s| rpc_client.get_transaction_with_config(&s, txn_config))
+        .collect();
+
+    let mut txns = join_all(txn_futs).await;
 
     let fills = parse_trades_from_openbook_txns(&mut txns, target_markets);
     if fills.len() > 0 {
@@ -111,8 +122,8 @@ pub async fn fetch_market_infos(
     config: &Config,
     markets: Vec<MarketConfig>,
 ) -> anyhow::Result<Vec<MarketInfo>> {
-    let url = &config.rpc_url;
-    let rpc_client = RpcClient::new_with_commitment(url, CommitmentConfig::processed());
+    let rpc_client =
+        RpcClient::new_with_commitment(config.rpc_url.clone(), CommitmentConfig::processed());
 
     let rpc_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
@@ -127,7 +138,7 @@ pub async fn fetch_market_infos(
         .collect::<Vec<Pubkey>>();
     let mut market_results = rpc_client
         .get_multiple_accounts_with_config(&market_keys, rpc_config.clone())
-        .unwrap()
+        .await?
         .value;
 
     let mut mint_key_map = HashMap::new();
@@ -171,7 +182,7 @@ pub async fn fetch_market_infos(
 
     let mint_results = rpc_client
         .get_multiple_accounts_with_config(&mint_keys, rpc_config)
-        .unwrap()
+        .await?
         .value;
     for i in 0..mint_results.len() {
         let mut mint_account = mint_results[i].as_ref().unwrap().clone();
