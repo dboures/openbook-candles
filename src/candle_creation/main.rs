@@ -1,12 +1,12 @@
 use dotenv;
 use openbook_candles::candle_creation::candle_batching::batch_candles;
-use openbook_candles::candle_creation::trade_fetching::scrape::{fetch_market_infos, scrape};
+use openbook_candles::candle_creation::trade_fetching::scrape::scrape;
 use openbook_candles::database::{
     initialize::{connect_to_database, setup_database},
     insert::{persist_candles, persist_fill_events},
 };
 use openbook_candles::structs::candle::Candle;
-use openbook_candles::structs::markets::load_markets;
+use openbook_candles::structs::markets::{fetch_market_infos, load_markets};
 use openbook_candles::structs::openbook::OpenBookFillEventLog;
 use openbook_candles::utils::Config;
 use solana_sdk::pubkey::Pubkey;
@@ -17,6 +17,7 @@ use tokio::sync::mpsc;
 async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
+    let path_to_markets_json: String = dotenv::var("PATH_TO_MARKETS_JSON").unwrap();
     let rpc_url: String = dotenv::var("RPC_URL").unwrap();
     let database_url: String = dotenv::var("DATABASE_URL").unwrap();
     let max_pg_pool_connections: u32 = dotenv::var("MAX_PG_POOL_CONNS_WORKER")
@@ -30,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
         max_pg_pool_connections,
     };
 
-    let markets = load_markets("/Users/dboures/dev/openbook-candles/markets.json");
+    let markets = load_markets(&path_to_markets_json);
     let market_infos = fetch_market_infos(&config, markets).await?;
     let mut target_markets = HashMap::new();
     for m in market_infos.clone() {

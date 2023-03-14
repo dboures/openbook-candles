@@ -3,7 +3,6 @@ use sqlx::{Pool, Postgres};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
-    time::Instant,
 };
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
@@ -17,16 +16,21 @@ pub async fn persist_fill_events(
     mut fill_receiver: Receiver<OpenBookFillEventLog>,
 ) {
     loop {
-        let start = Instant::now();
         let mut write_batch = HashMap::new();
-        while write_batch.len() < 10 || start.elapsed().as_secs() > 10 {
+        while write_batch.len() < 10 {
             match fill_receiver.try_recv() {
                 Ok(event) => {
                     if !write_batch.contains_key(&event) {
                         write_batch.insert(event, 0);
                     }
                 }
-                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Empty) => {
+                    if write_batch.len() > 0 {
+                        break;
+                    } else {
+                        continue;
+                    }
+                }
                 Err(TryRecvError::Disconnected) => {
                     panic!("Fills sender must stay alive")
                 }
