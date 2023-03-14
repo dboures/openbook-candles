@@ -1,10 +1,6 @@
 use openbook_candles::{
     database::fetch::fetch_tradingview_candles,
-    structs::{
-        markets::{valid_market, MarketInfo},
-        resolution::Resolution,
-        tradingview::TvResponse,
-    },
+    structs::{markets::valid_market, resolution::Resolution, tradingview::TvResponse},
     utils::{to_timestampz, WebContext},
 };
 

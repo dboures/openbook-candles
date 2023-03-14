@@ -2,7 +2,6 @@ use anchor_lang::AnchorDeserialize;
 use futures::future::join_all;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
-    client_error::Result as ClientResult,
     nonblocking::rpc_client::RpcClient,
     rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_config::{RpcAccountInfoConfig, RpcTransactionConfig},
@@ -10,7 +9,7 @@ use solana_client::{
 use solana_sdk::{
     commitment_config::CommitmentConfig, program_pack::Pack, pubkey::Pubkey, signature::Signature,
 };
-use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
+use solana_transaction_status::UiTransactionEncoding;
 use spl_token::state::Mint;
 use std::{collections::HashMap, str::FromStr, time::Duration as WaitDuration};
 use tokio::sync::mpsc::Sender;

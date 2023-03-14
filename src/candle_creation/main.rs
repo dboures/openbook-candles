@@ -1,9 +1,6 @@
 use dotenv;
 use openbook_candles::candle_creation::candle_batching::batch_candles;
-use openbook_candles::candle_creation::trade_fetching::{
-    backfill::backfill,
-    scrape::{fetch_market_infos, scrape},
-};
+use openbook_candles::candle_creation::trade_fetching::scrape::{fetch_market_infos, scrape};
 use openbook_candles::database::{
     initialize::{connect_to_database, setup_database},
     insert::{persist_candles, persist_fill_events},
@@ -43,42 +40,32 @@ async fn main() -> anyhow::Result<()> {
 
     let pool = connect_to_database(&config).await?;
     setup_database(&pool).await?;
+    let mut handles = vec![];
 
     let (fill_sender, fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
 
-    // let bf_sender = fill_sender.clone();
-    // let targets = target_markets.clone();
-    // tokio::spawn(async move {
-    //     backfill(&rpc_url.clone(), &bf_sender, &targets).await;
-    // });
-
-    tokio::spawn(async move {
+    handles.push(tokio::spawn(async move {
         scrape(&config, &fill_sender, &target_markets).await; //TODO: send the vec, it's okay
-    });
+    }));
 
     let fills_pool = pool.clone();
-    tokio::spawn(async move {
+    handles.push(tokio::spawn(async move {
         persist_fill_events(&fills_pool, fill_receiver).await;
-    });
+    }));
 
-    // let (candle_sender, candle_receiver) = mpsc::channel::<Vec<Candle>>(1000);
+    let (candle_sender, candle_receiver) = mpsc::channel::<Vec<Candle>>(1000);
 
-    // let batch_pool = pool.clone();
-    // tokio::spawn(async move {
-    //     batch_candles(batch_pool, &candle_sender, market_infos).await;
-    // });
+    let batch_pool = pool.clone();
+    handles.push(tokio::spawn(async move {
+        batch_candles(batch_pool, &candle_sender, market_infos).await;
+    }));
 
-    // let persist_pool = pool.clone();
-    // // tokio::spawn(async move {
-    // persist_candles(persist_pool, candle_receiver).await;
-    // // });
+    let persist_pool = pool.clone();
+    handles.push(tokio::spawn(async move {
+        persist_candles(persist_pool, candle_receiver).await;
+    }));
 
-    loop {} // tokio drop if one thread drops or something
+    futures::future::join_all(handles).await;
 
     Ok(())
 }
-
-// use getconfirmedsignaturesforaddres2 to scan txns
-// find filleventlog events
-// parse trade data
-// persist the last 3 months on differnet timescales

@@ -1,11 +1,9 @@
 use solana_client::client_error::Result as ClientResult;
+use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{
     option_serializer::OptionSerializer, EncodedConfirmedTransactionWithStatusMeta,
 };
 use std::{collections::HashMap, io::Error};
-
-use anchor_lang::{event, AnchorDeserialize, AnchorSerialize};
-use solana_sdk::pubkey::Pubkey;
 
 use crate::structs::openbook::OpenBookFillEventLog;
 

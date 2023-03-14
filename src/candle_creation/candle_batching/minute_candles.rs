@@ -80,12 +80,12 @@ fn combine_fills_into_1m_candles(
 
     let mut last_price = match maybe_last_price {
         Some(p) => p,
-        None => { 
+        None => {
             let first = fills_iter.peek().clone().unwrap();
             let (price, _) =
                 calculate_fill_price_and_size(**first, market.base_decimals, market.quote_decimals);
             price
-        } 
+        }
     };
 
     for i in 0..candles.len() {
