@@ -1,6 +1,6 @@
 use dotenv;
-use openbook_candles::candle_creation::candle_batching::batch_candles;
-use openbook_candles::candle_creation::trade_fetching::scrape::scrape;
+use openbook_candles::worker::candle_batching::batch_candles;
+use openbook_candles::worker::trade_fetching::scrape::scrape;
 use openbook_candles::database::{
     initialize::{connect_to_database, setup_database},
     insert::{persist_candles, persist_fill_events},

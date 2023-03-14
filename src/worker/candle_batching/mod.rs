@@ -7,7 +7,7 @@ use strum::IntoEnumIterator;
 use tokio::{sync::mpsc::Sender, time::sleep};
 
 use crate::{
-    candle_creation::candle_batching::minute_candles::batch_1m_candles,
+    worker::candle_batching::minute_candles::batch_1m_candles,
     structs::{candle::Candle, markets::MarketInfo, resolution::Resolution},
 };
 

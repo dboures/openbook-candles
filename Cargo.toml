@@ -8,8 +8,8 @@ name = "openbook_candles"
 path = "src/lib.rs"
 
 [[bin]]
-name = "creator"
-path = "src/candle_creation/main.rs"
+name = "worker"
+path = "src/worker/main.rs"
 
 [[bin]]
 name = "server"
