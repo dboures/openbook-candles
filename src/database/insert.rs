@@ -45,6 +45,29 @@ pub async fn persist_fill_events(
     }
 }
 
+pub async fn persist_candles(pool: Pool<Postgres>, mut candles_receiver: Receiver<Vec<Candle>>) {
+    loop {
+        match candles_receiver.try_recv() {
+            Ok(candles) => {
+                if candles.len() == 0 {
+                    continue;
+                }
+                print!("writing: {:?} candles to DB\n", candles.len());
+                let upsert_statement = build_candes_upsert_statement(candles);
+                sqlx::query(&upsert_statement)
+                    .execute(&pool)
+                    .await
+                    .map_err_anyhow()
+                    .unwrap();
+            }
+            Err(TryRecvError::Empty) => continue,
+            Err(TryRecvError::Disconnected) => {
+                panic!("Candles sender must stay alive")
+            }
+        };
+    }
+}
+
 fn build_fills_upsert_statement(events: HashMap<OpenBookFillEventLog, u8>) -> String {
     let mut stmt = String::from("INSERT INTO fills (id, time, market, open_orders, open_orders_owner, bid, maker, native_qty_paid, native_qty_received, native_fee_or_rebate, fee_tier, order_id) VALUES");
     for (idx, event) in events.keys().enumerate() {
@@ -77,35 +100,6 @@ fn build_fills_upsert_statement(events: HashMap<OpenBookFillEventLog, u8>) -> St
 
     stmt = format!("{} {}", stmt, handle_conflict);
     stmt
-}
-
-pub async fn persist_candles(pool: Pool<Postgres>, mut candles_receiver: Receiver<Vec<Candle>>) {
-    loop {
-        match candles_receiver.try_recv() {
-            Ok(candles) => {
-                if candles.len() == 0 {
-                    continue;
-                }
-                print!("writing: {:?} candles to DB\n", candles.len());
-                match candles.last() {
-                    Some(c) => {
-                        println!("{:?}\n\n", c.end_time)
-                    }
-                    None => {}
-                }
-                let upsert_statement = build_candes_upsert_statement(candles);
-                sqlx::query(&upsert_statement)
-                    .execute(&pool)
-                    .await
-                    .map_err_anyhow()
-                    .unwrap();
-            }
-            Err(TryRecvError::Empty) => continue,
-            Err(TryRecvError::Disconnected) => {
-                panic!("Candles sender must stay alive")
-            }
-        };
-    }
 }
 
 fn build_candes_upsert_statement(candles: Vec<Candle>) -> String {

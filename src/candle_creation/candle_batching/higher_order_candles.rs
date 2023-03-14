@@ -1,4 +1,4 @@
-use chrono::{DateTime, DurationRound, Utc};
+use chrono::{DateTime, Duration, DurationRound, Utc};
 use num_traits::Zero;
 use sqlx::{types::Decimal, Pool, Postgres};
 use std::cmp::{max, min};
@@ -22,8 +22,6 @@ pub async fn batch_higher_order_candles(
         Some(candle) => {
             let start_time = candle.end_time;
             let end_time = start_time + day();
-            // println!("candle.end_time: {:?}", candle.end_time);
-            // println!("start_time: {:?}", start_time);
             let mut constituent_candles = fetch_candles_from(
                 pool,
                 market_name,
@@ -97,16 +95,19 @@ fn combine_into_higher_order_candles(
 
     let duration = target_resolution.get_duration();
 
-    let candles_len = constituent_candles.len();
-
     let empty_candle = Candle::create_empty_candle(
         constituent_candles[0].market_name.clone(),
         target_resolution,
     );
-    let mut combined_candles =
-        vec![empty_candle; (day().num_minutes() / duration.num_minutes()) as usize];
+    let now = Utc::now().duration_trunc(Duration::minutes(1)).unwrap();
+    let candle_window = now - st;
+    let num_candles = if candle_window.num_minutes() % duration.num_minutes() == 0 {
+        (candle_window.num_minutes() / duration.num_minutes()) as usize + 1
+    } else {
+        (candle_window.num_minutes() / duration.num_minutes()) as usize
+    };
 
-    println!("candles_len: {}", candles_len);
+    let mut combined_candles = vec![empty_candle; num_candles];
 
     let mut con_iter = constituent_candles.iter_mut().peekable();
     let mut start_time = st.clone();

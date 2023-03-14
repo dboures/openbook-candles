@@ -66,14 +66,14 @@ impl Resolution {
 
     pub fn from_str(v: &str) -> Result<Self, ()> {
         match v {
-            "1" => Ok(Resolution::R1m),
-            "3" => Ok(Resolution::R3m),
-            "5" => Ok(Resolution::R5m),
-            "15" => Ok(Resolution::R15m),
-            "30" => Ok(Resolution::R30m),
-            "60" => Ok(Resolution::R1h),
-            "120" => Ok(Resolution::R2h),
-            "240" => Ok(Resolution::R4h),
+            "1M" => Ok(Resolution::R1m),
+            "3M" => Ok(Resolution::R3m),
+            "5M" => Ok(Resolution::R5m),
+            "15M" => Ok(Resolution::R15m),
+            "30M" => Ok(Resolution::R30m),
+            "1H" => Ok(Resolution::R1h),
+            "2H" => Ok(Resolution::R2h),
+            "4H" => Ok(Resolution::R4h),
             "D" => Ok(Resolution::R1d),
             _ => Err(()),
         }

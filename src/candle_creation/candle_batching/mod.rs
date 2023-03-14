@@ -18,36 +18,31 @@ pub async fn batch_candles(
     candles_sender: &Sender<Vec<Candle>>,
     markets: Vec<MarketInfo>,
 ) {
-    // TODO: tokio spawn a taks for every market
+    let mut handles = vec![];
+    for market in markets.into_iter() {
+        let sender = candles_sender.clone();
+        let pool_clone = pool.clone();
+        let market_clone = market.clone();
+        handles.push(tokio::spawn(async move {
+            loop {
+                batch_for_market(&pool_clone, &sender, &market_clone)
+                    .await
+                    .unwrap();
 
-    loop {
-        let m = MarketInfo {
-            name: "BTC/USDC".to_owned(),
-            address: "A8YFbxQYFVqKZaoYJLLUVcQiWP7G2MeEgW5wsAQgMvFw".to_owned(),
-            base_decimals: 6,
-            quote_decimals: 6,
-            base_mint_key: "GVXRSBjFk6e6J3NbVPXohDJetcTjaeeuykUpbQF8UoMU".to_owned(),
-            quote_mint_key: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_owned(),
-            base_lot_size: 10_000,
-            quote_lot_size: 1,
-        };
-
-        batch_for_market(&pool.clone(), candles_sender, m)
-            .await
-            .unwrap();
-
-        sleep(Duration::milliseconds(500).to_std().unwrap()).await;
+                sleep(Duration::milliseconds(2000).to_std().unwrap()).await;
+            }
+        }));
     }
 
-    //loop
+    futures::future::join_all(handles).await;
 }
 
 async fn batch_for_market(
     pool: &Pool<Postgres>,
     candles_sender: &Sender<Vec<Candle>>,
-    market: MarketInfo,
+    market: &MarketInfo,
 ) -> anyhow::Result<()> {
-    let market_address = &market.address.clone();
+    let market_name = &market.name.clone();
     let candles = batch_1m_candles(pool, market).await?;
     send_candles(candles, candles_sender).await;
 
@@ -55,7 +50,7 @@ async fn batch_for_market(
         if resolution == Resolution::R1m {
             continue;
         }
-        let candles = batch_higher_order_candles(pool, market_address, resolution).await?;
+        let candles = batch_higher_order_candles(pool, market_name, resolution).await?;
         send_candles(candles, candles_sender).await;
     }
     Ok(())

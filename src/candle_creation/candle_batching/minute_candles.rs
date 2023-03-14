@@ -1,7 +1,6 @@
 use std::cmp::{max, min};
 
 use chrono::{DateTime, Duration, DurationRound, Utc};
-use num_traits::{FromPrimitive, Zero};
 use sqlx::{types::Decimal, Pool, Postgres};
 
 use crate::{
@@ -16,7 +15,7 @@ use crate::{
 
 pub async fn batch_1m_candles(
     pool: &Pool<Postgres>,
-    market: MarketInfo,
+    market: &MarketInfo,
 ) -> anyhow::Result<Vec<Candle>> {
     let market_name = &market.name;
     let market_address = &market.address;
@@ -65,12 +64,12 @@ pub async fn batch_1m_candles(
 
 fn combine_fills_into_1m_candles(
     fills: &mut Vec<PgOpenBookFill>,
-    market: MarketInfo,
+    market: &MarketInfo,
     st: DateTime<Utc>,
     et: DateTime<Utc>,
     maybe_last_price: Option<Decimal>,
 ) -> Vec<Candle> {
-    let empty_candle = Candle::create_empty_candle(market.name, Resolution::R1m);
+    let empty_candle = Candle::create_empty_candle(market.name.clone(), Resolution::R1m);
 
     let minutes = (et - st).num_minutes();
     let mut candles = vec![empty_candle; minutes as usize];
@@ -79,7 +78,15 @@ fn combine_fills_into_1m_candles(
     let mut start_time = st.clone();
     let mut end_time = start_time + Duration::minutes(1);
 
-    let mut last_price = maybe_last_price.unwrap_or(Decimal::zero()); // TODO: very first open is wrong
+    let mut last_price = match maybe_last_price {
+        Some(p) => p,
+        None => { 
+            let first = fills_iter.peek().clone().unwrap();
+            let (price, _) =
+                calculate_fill_price_and_size(**first, market.base_decimals, market.quote_decimals);
+            price
+        } 
+    };
 
     for i in 0..candles.len() {
         candles[i].open = last_price;
