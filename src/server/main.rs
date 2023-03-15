@@ -12,6 +12,7 @@ use openbook_candles::{
     utils::{Config, WebContext},
 };
 use traders::{get_top_traders_by_base_volume, get_top_traders_by_quote_volume};
+use std::env;
 
 mod candles;
 mod markets;
@@ -23,7 +24,9 @@ async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     env_logger::init();
 
-    let path_to_markets_json: String = dotenv::var("PATH_TO_MARKETS_JSON").unwrap();
+    let args: Vec<String> = env::args().collect();
+    assert!(args.len() == 2);
+    let path_to_markets_json = &args[1];
     let rpc_url: String = dotenv::var("RPC_URL").unwrap();
     let database_url: String = dotenv::var("DATABASE_URL").unwrap();
     let max_pg_pool_connections: u32 = dotenv::var("MAX_PG_POOL_CONNS_SERVER")
@@ -37,7 +40,7 @@ async fn main() -> std::io::Result<()> {
         max_pg_pool_connections,
     };
 
-    let markets = load_markets(&path_to_markets_json);
+    let markets = load_markets(path_to_markets_json);
     let market_infos = fetch_market_infos(&config, markets).await.unwrap();
     let pool = connect_to_database(&config).await.unwrap();
 

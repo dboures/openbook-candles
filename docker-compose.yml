@@ -1,0 +1,33 @@
+services:
+
+  server:
+    env_file: .env
+    build:
+      dockerfile: Dockerfile.server
+    depends_on:
+      - "db"
+    entrypoint:
+      - "/usr/local/bin/server"
+      - "/etc/markets.json"
+
+    ports:
+      - 127.0.0.1:8080:8080
+    restart: always
+    volumes:
+      - ./markets.json:/etc/markets.json
+
+  worker:
+    env_file: .env
+    build:
+      dockerfile: Dockerfile.worker
+    depends_on:
+      - "db"
+    restart: always
+    entrypoint:
+      - "/usr/local/bin/worker"
+      - "/etc/markets.json"
+    volumes:
+      - ./markets.json:/etc/markets.json
+
+volumes:
+  data:

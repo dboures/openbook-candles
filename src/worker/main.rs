@@ -12,12 +12,15 @@ use openbook_candles::utils::Config;
 use solana_sdk::pubkey::Pubkey;
 use std::{collections::HashMap, str::FromStr};
 use tokio::sync::mpsc;
+use std::env;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
-    let path_to_markets_json: String = dotenv::var("PATH_TO_MARKETS_JSON").unwrap();
+    let args: Vec<String> = env::args().collect();
+    assert!(args.len() == 2);
+    let path_to_markets_json = &args[1];
     let rpc_url: String = dotenv::var("RPC_URL").unwrap();
     let database_url: String = dotenv::var("DATABASE_URL").unwrap();
     let max_pg_pool_connections: u32 = dotenv::var("MAX_PG_POOL_CONNS_WORKER")
