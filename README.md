@@ -1,6 +1,6 @@
 # openbook-candles
 
-OpenBook Candles is an open source trade scraper and candle batcher combined with web API for OpenBook frontends.
+OpenBook Candles is an open source trade scraper and candle batcher combined with web API for OpenBook frontends. The web API is largely based off of the code [here](https://github.com/Bonfida/agnostic-candles).
 
 
 [Configuration](#configuration)  
