@@ -91,7 +91,7 @@ fn combine_into_higher_order_candles(
     st: DateTime<Utc>,
     seed_candle: Candle,
 ) -> Vec<Candle> {
-    println!("target_resolution: {}", target_resolution);
+    // println!("target_resolution: {}", target_resolution);
 
     let duration = target_resolution.get_duration();
 

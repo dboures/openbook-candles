@@ -7,37 +7,40 @@ use strum::IntoEnumIterator;
 use tokio::{sync::mpsc::Sender, time::sleep};
 
 use crate::{
-    worker::candle_batching::minute_candles::batch_1m_candles,
     structs::{candle::Candle, markets::MarketInfo, resolution::Resolution},
+    worker::candle_batching::minute_candles::batch_1m_candles,
 };
 
 use self::higher_order_candles::batch_higher_order_candles;
 
-pub async fn batch_candles(
+pub async fn batch_for_market(
     pool: Pool<Postgres>,
     candles_sender: &Sender<Vec<Candle>>,
-    markets: Vec<MarketInfo>,
+    market: &MarketInfo,
 ) {
-    let mut handles = vec![];
-    for market in markets.into_iter() {
+    loop {
         let sender = candles_sender.clone();
         let pool_clone = pool.clone();
         let market_clone = market.clone();
-        handles.push(tokio::spawn(async move {
-            loop {
-                batch_for_market(&pool_clone, &sender, &market_clone)
-                    .await
-                    .unwrap();
-
-                sleep(Duration::milliseconds(2000).to_std().unwrap()).await;
-            }
-        }));
+        loop {
+            sleep(Duration::milliseconds(2000).to_std().unwrap()).await;
+            match batch_inner(&pool_clone, &sender, &market_clone).await {
+                Ok(_) => {}
+                Err(e) => {
+                    println!(
+                        "Batching thread failed for {:?} with error: {:?}",
+                        market_clone.name.clone(),
+                        e
+                    );
+                    break;
+                }
+            };
+        }
+        println!("Restarting {:?} batching thread", market.name);
     }
-
-    futures::future::join_all(handles).await;
 }
 
-async fn batch_for_market(
+async fn batch_inner(
     pool: &Pool<Postgres>,
     candles_sender: &Sender<Vec<Candle>>,
     market: &MarketInfo,
