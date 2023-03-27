@@ -91,11 +91,11 @@ pub async fn fetch_latest_finished_candle(
     .map_err_anyhow()
 }
 
-pub async fn fetch_earliest_candle(
+pub async fn fetch_earliest_candles(
     conn: &mut PoolConnection<Postgres>,
     market_name: &str,
     resolution: Resolution,
-) -> anyhow::Result<Option<Candle>> {
+) -> anyhow::Result<Vec<Candle>> {
     sqlx::query_as!(
         Candle,
         r#"SELECT 
@@ -112,11 +112,11 @@ pub async fn fetch_earliest_candle(
         from candles
         where market_name = $1
         and resolution = $2
-        ORDER BY start_time asc LIMIT 1"#,
+        ORDER BY start_time asc"#,
         market_name,
         resolution.to_string()
     )
-    .fetch_optional(conn)
+    .fetch_all(conn)
     .await
     .map_err_anyhow()
 }
@@ -146,7 +146,6 @@ pub async fn fetch_candles_from(
         and resolution = $2
         and start_time >= $3
         and end_time <= $4
-        and complete = true
         ORDER BY start_time asc"#,
         market_name,
         resolution.to_string(),

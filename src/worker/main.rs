@@ -55,7 +55,9 @@ async fn main() -> anyhow::Result<()> {
     let fills_pool = pool.clone();
     handles.push(tokio::spawn(async move {
         loop {
-            persist_fill_events(&fills_pool, &mut fill_receiver).await.unwrap();
+            persist_fill_events(&fills_pool, &mut fill_receiver)
+                .await
+                .unwrap();
         }
     }));
 
@@ -65,7 +67,9 @@ async fn main() -> anyhow::Result<()> {
         let sender = candle_sender.clone();
         let batch_pool = pool.clone();
         handles.push(tokio::spawn(async move {
-            batch_for_market(batch_pool, &sender, &market).await.unwrap();
+            batch_for_market(batch_pool, &sender, &market)
+                .await
+                .unwrap();
             println!("SOMETHING WENT WRONG");
         }));
     }
@@ -73,7 +77,9 @@ async fn main() -> anyhow::Result<()> {
     let persist_pool = pool.clone();
     handles.push(tokio::spawn(async move {
         loop {
-            persist_candles(persist_pool.clone(), &mut candle_receiver).await.unwrap();
+            persist_candles(persist_pool.clone(), &mut candle_receiver)
+                .await
+                .unwrap();
         }
     }));
 

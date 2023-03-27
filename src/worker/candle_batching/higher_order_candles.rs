@@ -1,10 +1,9 @@
 use chrono::{DateTime, Duration, DurationRound, Utc};
-use num_traits::Zero;
-use sqlx::{types::Decimal, Pool, Postgres};
+use sqlx::{pool::PoolConnection, Postgres};
 use std::cmp::{max, min};
 
 use crate::{
-    database::fetch::{fetch_candles_from, fetch_earliest_candle, fetch_latest_finished_candle},
+    database::fetch::{fetch_candles_from, fetch_earliest_candles, fetch_latest_finished_candle},
     structs::{
         candle::Candle,
         resolution::{day, Resolution},
@@ -12,18 +11,18 @@ use crate::{
 };
 
 pub async fn batch_higher_order_candles(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     market_name: &str,
     resolution: Resolution,
 ) -> anyhow::Result<Vec<Candle>> {
-    let latest_candle = fetch_latest_finished_candle(pool, market_name, resolution).await?;
+    let latest_candle = fetch_latest_finished_candle(conn, market_name, resolution).await?;
 
     match latest_candle {
         Some(candle) => {
             let start_time = candle.end_time;
             let end_time = start_time + day();
             let mut constituent_candles = fetch_candles_from(
-                pool,
+                conn,
                 market_name,
                 resolution.get_constituent_resolution(),
                 start_time,
@@ -42,32 +41,20 @@ pub async fn batch_higher_order_candles(
             Ok(combined_candles)
         }
         None => {
-            let constituent_candle =
-                fetch_earliest_candle(pool, market_name, resolution.get_constituent_resolution())
+            let mut constituent_candles =
+                fetch_earliest_candles(conn, market_name, resolution.get_constituent_resolution())
                     .await?;
-            if constituent_candle.is_none() {
-                println!(
-                    "Batching {}, but no candles found for: {:?}, {}",
-                    resolution,
-                    market_name,
-                    resolution.get_constituent_resolution()
-                );
+            if constituent_candles.len() == 0 {
+                // println!(
+                //     "Batching {}, but no candles found for: {:?}, {}",
+                //     resolution,
+                //     market_name,
+                //     resolution.get_constituent_resolution()
+                // );
                 return Ok(Vec::new());
             }
-            let start_time = constituent_candle
-                .unwrap()
-                .start_time
-                .duration_trunc(day())?;
-            let end_time = start_time + day();
+            let start_time = constituent_candles[0].start_time.duration_trunc(day())?;
 
-            let mut constituent_candles = fetch_candles_from(
-                pool,
-                market_name,
-                resolution.get_constituent_resolution(),
-                start_time,
-                end_time,
-            )
-            .await?;
             if constituent_candles.len() == 0 {
                 return Ok(Vec::new());
             }
@@ -80,7 +67,10 @@ pub async fn batch_higher_order_candles(
                 seed_candle,
             );
 
-            Ok(trim_zero_candles(combined_candles))
+            Ok(trim_candles(
+                combined_candles,
+                constituent_candles[0].start_time,
+            ))
         }
     }
 }
@@ -101,11 +91,10 @@ fn combine_into_higher_order_candles(
     );
     let now = Utc::now().duration_trunc(Duration::minutes(1)).unwrap();
     let candle_window = now - st;
-    let num_candles = if candle_window.num_minutes() % duration.num_minutes() == 0 {
-        (candle_window.num_minutes() / duration.num_minutes()) as usize + 1
-    } else {
-        (candle_window.num_minutes() / duration.num_minutes()) as usize
-    };
+    let num_candles = max(
+        1,
+        (candle_window.num_minutes() / duration.num_minutes()) as usize + 1,
+    );
 
     let mut combined_candles = vec![empty_candle; num_candles];
 
@@ -143,16 +132,10 @@ fn combine_into_higher_order_candles(
     combined_candles
 }
 
-fn trim_zero_candles(mut c: Vec<Candle>) -> Vec<Candle> {
+fn trim_candles(mut c: Vec<Candle>, start_time: DateTime<Utc>) -> Vec<Candle> {
     let mut i = 0;
     while i < c.len() {
-        if c[i].open == Decimal::zero()
-            && c[i].high == Decimal::zero()
-            && c[i].low == Decimal::zero()
-            && c[i].close == Decimal::zero()
-            && c[i].volume == Decimal::zero()
-            && c[i].complete == true
-        {
+        if c[i].end_time <= start_time {
             c.remove(i);
         } else {
             i += 1;

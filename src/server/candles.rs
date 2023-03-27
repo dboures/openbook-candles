@@ -36,9 +36,7 @@ pub async fn get_candles(
 
     let mut conn = context.pool.acquire().await.unwrap();
     let candles =
-        match fetch_tradingview_candles(&mut conn, &info.market_name, resolution, from, to)
-            .await
-        {
+        match fetch_tradingview_candles(&mut conn, &info.market_name, resolution, from, to).await {
             Ok(c) => c,
             Err(_) => return Err(ServerError::DbQueryError),
         };

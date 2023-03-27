@@ -1,10 +1,10 @@
-use chrono::{Utc};
-use sqlx::{Pool, Postgres, Connection};
+use chrono::Utc;
+use sqlx::{Connection, Pool, Postgres};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
 };
-use tokio::{sync::mpsc::{error::TryRecvError, Receiver}};
+use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 use crate::{
     structs::{candle::Candle, openbook::OpenBookFillEventLog},

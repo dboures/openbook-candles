@@ -55,9 +55,13 @@ pub async fn batch_1m_candles(
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
             let mut fills = fetch_fills_from(conn, market_address, start_time, end_time).await?;
-            let candles =
-                combine_fills_into_1m_candles(&mut fills, market, start_time, end_time, None);
-            Ok(candles)
+            if fills.len() > 0 {
+                let candles =
+                    combine_fills_into_1m_candles(&mut fills, market, start_time, end_time, None);
+                Ok(candles)
+            } else {
+                Ok(Vec::new())
+            }
         }
     }
 }

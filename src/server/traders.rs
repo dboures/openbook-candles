@@ -32,17 +32,13 @@ pub async fn get_top_traders_by_base_volume(
     let to = to_timestampz(info.to);
 
     let mut conn = context.pool.acquire().await.unwrap();
-    let raw_traders = match fetch_top_traders_by_base_volume_from(
-        &mut conn,
-        &selected_market.address,
-        from,
-        to,
-    )
-    .await
-    {
-        Ok(c) => c,
-        Err(_) => return Err(ServerError::DbQueryError),
-    };
+    let raw_traders =
+        match fetch_top_traders_by_base_volume_from(&mut conn, &selected_market.address, from, to)
+            .await
+        {
+            Ok(c) => c,
+            Err(_) => return Err(ServerError::DbQueryError),
+        };
 
     let traders = raw_traders
         .into_iter()
@@ -72,17 +68,13 @@ pub async fn get_top_traders_by_quote_volume(
     let to = to_timestampz(info.to);
 
     let mut conn = context.pool.acquire().await.unwrap();
-    let raw_traders = match fetch_top_traders_by_quote_volume_from(
-        &mut conn,
-        &selected_market.address,
-        from,
-        to,
-    )
-    .await
-    {
-        Ok(c) => c,
-        Err(_) => return Err(ServerError::DbQueryError),
-    };
+    let raw_traders =
+        match fetch_top_traders_by_quote_volume_from(&mut conn, &selected_market.address, from, to)
+            .await
+        {
+            Ok(c) => c,
+            Err(_) => return Err(ServerError::DbQueryError),
+        };
 
     let traders = raw_traders
         .into_iter()
