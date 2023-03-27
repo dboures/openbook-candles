@@ -151,158 +151,6 @@
     },
     "query": "SELECT \n        start_time as \"start_time!\",\n        end_time as \"end_time!\",\n        resolution as \"resolution!\",\n        market_name as \"market_name!\",\n        open as \"open!\",\n        close as \"close!\",\n        high as \"high!\",\n        low as \"low!\",\n        volume as \"volume!\",\n        complete as \"complete!\"\n        from candles\n        where market_name = $1\n        and resolution = $2\n        and start_time >= $3\n        and end_time <= $4\n        ORDER BY start_time asc"
   },
-  "98d4c97eeb4f0d14fd9284a968e88837456117a1c1995df37e615902b482ff10": {
-    "describe": {
-      "columns": [
-        {
-          "name": "start_time!",
-          "ordinal": 0,
-          "type_info": "Timestamptz"
-        },
-        {
-          "name": "end_time!",
-          "ordinal": 1,
-          "type_info": "Timestamptz"
-        },
-        {
-          "name": "resolution!",
-          "ordinal": 2,
-          "type_info": "Text"
-        },
-        {
-          "name": "market_name!",
-          "ordinal": 3,
-          "type_info": "Text"
-        },
-        {
-          "name": "open!",
-          "ordinal": 4,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "close!",
-          "ordinal": 5,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "high!",
-          "ordinal": 6,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "low!",
-          "ordinal": 7,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "volume!",
-          "ordinal": 8,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "complete!",
-          "ordinal": 9,
-          "type_info": "Bool"
-        }
-      ],
-      "nullable": [
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Text",
-          "Text"
-        ]
-      }
-    },
-    "query": "SELECT \n        start_time as \"start_time!\",\n        end_time as \"end_time!\",\n        resolution as \"resolution!\",\n        market_name as \"market_name!\",\n        open as \"open!\",\n        close as \"close!\",\n        high as \"high!\",\n        low as \"low!\",\n        volume as \"volume!\",\n        complete as \"complete!\"\n        from candles\n        where market_name = $1\n        and resolution = $2\n        ORDER BY start_time asc LIMIT 1"
-  },
-  "a69ebc1820a6635f83a99fddc1bf8ae0c7a3184de6d38e129baa6397c61efc60": {
-    "describe": {
-      "columns": [
-        {
-          "name": "start_time!",
-          "ordinal": 0,
-          "type_info": "Timestamptz"
-        },
-        {
-          "name": "end_time!",
-          "ordinal": 1,
-          "type_info": "Timestamptz"
-        },
-        {
-          "name": "resolution!",
-          "ordinal": 2,
-          "type_info": "Text"
-        },
-        {
-          "name": "market_name!",
-          "ordinal": 3,
-          "type_info": "Text"
-        },
-        {
-          "name": "open!",
-          "ordinal": 4,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "close!",
-          "ordinal": 5,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "high!",
-          "ordinal": 6,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "low!",
-          "ordinal": 7,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "volume!",
-          "ordinal": 8,
-          "type_info": "Numeric"
-        },
-        {
-          "name": "complete!",
-          "ordinal": 9,
-          "type_info": "Bool"
-        }
-      ],
-      "nullable": [
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Text",
-          "Text",
-          "Timestamptz",
-          "Timestamptz"
-        ]
-      }
-    },
-    "query": "SELECT \n        start_time as \"start_time!\",\n        end_time as \"end_time!\",\n        resolution as \"resolution!\",\n        market_name as \"market_name!\",\n        open as \"open!\",\n        close as \"close!\",\n        high as \"high!\",\n        low as \"low!\",\n        volume as \"volume!\",\n        complete as \"complete!\"\n        from candles\n        where market_name = $1\n        and resolution = $2\n        and start_time >= $3\n        and end_time <= $4\n        and complete = true\n        ORDER BY start_time asc"
-  },
   "aee3a3e04f837bd62e263452bfbaf5d7dff271799c80d5efd22a54954ac212c4": {
     "describe": {
       "columns": [
@@ -448,6 +296,81 @@
       }
     },
     "query": "SELECT \n         time as \"time!\",\n         bid as \"bid!\",\n         maker as \"maker!\",\n         native_qty_paid as \"native_qty_paid!\",\n         native_qty_received as \"native_qty_received!\",\n         native_fee_or_rebate as \"native_fee_or_rebate!\" \n         from fills \n         where market = $1 \n         and maker = true\n         ORDER BY time asc LIMIT 1"
+  },
+  "e367fec686c10d361f4a5ac014ca34ce68544dfe9cf32b79a6a78790e8c6d5cc": {
+    "describe": {
+      "columns": [
+        {
+          "name": "start_time!",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "end_time!",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "resolution!",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "market_name!",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "open!",
+          "ordinal": 4,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "close!",
+          "ordinal": 5,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "high!",
+          "ordinal": 6,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "low!",
+          "ordinal": 7,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "volume!",
+          "ordinal": 8,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "complete!",
+          "ordinal": 9,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT \n        start_time as \"start_time!\",\n        end_time as \"end_time!\",\n        resolution as \"resolution!\",\n        market_name as \"market_name!\",\n        open as \"open!\",\n        close as \"close!\",\n        high as \"high!\",\n        low as \"low!\",\n        volume as \"volume!\",\n        complete as \"complete!\"\n        from candles\n        where market_name = $1\n        and resolution = $2\n        ORDER BY start_time asc"
   },
   "e94788e9eb04534dc13a73f80255705fb39789caa6dfb43e8417471f8399bb85": {
     "describe": {

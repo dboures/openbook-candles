@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlx::{Pool, Postgres};
+use sqlx::{pool::PoolConnection, Postgres};
 
 use crate::{
     structs::{candle::Candle, openbook::PgOpenBookFill, resolution::Resolution, trader::PgTrader},
@@ -7,7 +7,7 @@ use crate::{
 };
 
 pub async fn fetch_earliest_fill(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     market_address_string: &str,
 ) -> anyhow::Result<Option<PgOpenBookFill>> {
     sqlx::query_as!(
@@ -25,13 +25,13 @@ pub async fn fetch_earliest_fill(
          ORDER BY time asc LIMIT 1"#,
         market_address_string
     )
-    .fetch_optional(pool)
+    .fetch_optional(conn)
     .await
     .map_err_anyhow()
 }
 
 pub async fn fetch_fills_from(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     market_address_string: &str,
     start_time: DateTime<Utc>,
     end_time: DateTime<Utc>,
@@ -55,13 +55,13 @@ pub async fn fetch_fills_from(
         start_time,
         end_time
     )
-    .fetch_all(pool)
+    .fetch_all(conn)
     .await
     .map_err_anyhow()
 }
 
 pub async fn fetch_latest_finished_candle(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     market_name: &str,
     resolution: Resolution,
 ) -> anyhow::Result<Option<Candle>> {
@@ -86,16 +86,16 @@ pub async fn fetch_latest_finished_candle(
         market_name,
         resolution.to_string()
     )
-    .fetch_optional(pool)
+    .fetch_optional(conn)
     .await
     .map_err_anyhow()
 }
 
-pub async fn fetch_earliest_candle(
-    pool: &Pool<Postgres>,
+pub async fn fetch_earliest_candles(
+    conn: &mut PoolConnection<Postgres>,
     market_name: &str,
     resolution: Resolution,
-) -> anyhow::Result<Option<Candle>> {
+) -> anyhow::Result<Vec<Candle>> {
     sqlx::query_as!(
         Candle,
         r#"SELECT 
@@ -112,17 +112,17 @@ pub async fn fetch_earliest_candle(
         from candles
         where market_name = $1
         and resolution = $2
-        ORDER BY start_time asc LIMIT 1"#,
+        ORDER BY start_time asc"#,
         market_name,
         resolution.to_string()
     )
-    .fetch_optional(pool)
+    .fetch_all(conn)
     .await
     .map_err_anyhow()
 }
 
 pub async fn fetch_candles_from(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     market_name: &str,
     resolution: Resolution,
     start_time: DateTime<Utc>,
@@ -146,20 +146,19 @@ pub async fn fetch_candles_from(
         and resolution = $2
         and start_time >= $3
         and end_time <= $4
-        and complete = true
         ORDER BY start_time asc"#,
         market_name,
         resolution.to_string(),
         start_time,
         end_time
     )
-    .fetch_all(pool)
+    .fetch_all(conn)
     .await
     .map_err_anyhow()
 }
 
 pub async fn fetch_tradingview_candles(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     market_name: &str,
     resolution: Resolution,
     start_time: DateTime<Utc>,
@@ -189,13 +188,13 @@ pub async fn fetch_tradingview_candles(
         start_time,
         end_time
     )
-    .fetch_all(pool)
+    .fetch_all(conn)
     .await
     .map_err_anyhow()
 }
 
 pub async fn fetch_top_traders_by_base_volume_from(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     market_address_string: &str,
     start_time: DateTime<Utc>,
     end_time: DateTime<Utc>,
@@ -225,13 +224,13 @@ LIMIT 10000"#,
         start_time,
         end_time
     )
-    .fetch_all(pool)
+    .fetch_all(conn)
     .await
     .map_err_anyhow()
 }
 
 pub async fn fetch_top_traders_by_quote_volume_from(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     market_address_string: &str,
     start_time: DateTime<Utc>,
     end_time: DateTime<Utc>,
@@ -261,7 +260,7 @@ LIMIT 10000"#,
         start_time,
         end_time
     )
-    .fetch_all(pool)
+    .fetch_all(conn)
     .await
     .map_err_anyhow()
 }
