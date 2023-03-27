@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 
 use chrono::{DateTime, Duration, DurationRound, Utc};
-use sqlx::{types::Decimal, Pool, Postgres};
+use sqlx::{pool::PoolConnection, types::Decimal, Postgres};
 
 use crate::{
     database::fetch::{fetch_earliest_fill, fetch_fills_from, fetch_latest_finished_candle},
@@ -14,12 +14,12 @@ use crate::{
 };
 
 pub async fn batch_1m_candles(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     market: &MarketInfo,
 ) -> anyhow::Result<Vec<Candle>> {
     let market_name = &market.name;
     let market_address = &market.address;
-    let latest_candle = fetch_latest_finished_candle(pool, market_name, Resolution::R1m).await?;
+    let latest_candle = fetch_latest_finished_candle(conn, market_name, Resolution::R1m).await?;
 
     match latest_candle {
         Some(candle) => {
@@ -28,7 +28,7 @@ pub async fn batch_1m_candles(
                 start_time + day(),
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
-            let mut fills = fetch_fills_from(pool, market_address, start_time, end_time).await?;
+            let mut fills = fetch_fills_from(conn, market_address, start_time, end_time).await?;
             let candles = combine_fills_into_1m_candles(
                 &mut fills,
                 market,
@@ -39,7 +39,7 @@ pub async fn batch_1m_candles(
             Ok(candles)
         }
         None => {
-            let earliest_fill = fetch_earliest_fill(pool, market_address).await?;
+            let earliest_fill = fetch_earliest_fill(conn, market_address).await?;
 
             if earliest_fill.is_none() {
                 println!("No fills found for: {:?}", market_name);
@@ -54,7 +54,7 @@ pub async fn batch_1m_candles(
                 start_time + day(),
                 Utc::now().duration_trunc(Duration::minutes(1))?,
             );
-            let mut fills = fetch_fills_from(pool, market_address, start_time, end_time).await?;
+            let mut fills = fetch_fills_from(conn, market_address, start_time, end_time).await?;
             let candles =
                 combine_fills_into_1m_candles(&mut fills, market, start_time, end_time, None);
             Ok(candles)

@@ -34,8 +34,9 @@ pub async fn get_candles(
     let from = to_timestampz(info.from);
     let to = to_timestampz(info.to);
 
+    let mut conn = context.pool.acquire().await.unwrap();
     let candles =
-        match fetch_tradingview_candles(&context.pool, &info.market_name, resolution, from, to)
+        match fetch_tradingview_candles(&mut conn, &info.market_name, resolution, from, to)
             .await
         {
             Ok(c) => c,

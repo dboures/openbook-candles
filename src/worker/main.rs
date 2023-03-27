@@ -46,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
     setup_database(&pool).await?;
     let mut handles = vec![];
 
-    let (fill_sender, fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
+    let (fill_sender, mut fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
 
     handles.push(tokio::spawn(async move {
         scrape(&config, &fill_sender, &target_markets).await; //TODO: send the vec, it's okay
@@ -54,23 +54,27 @@ async fn main() -> anyhow::Result<()> {
 
     let fills_pool = pool.clone();
     handles.push(tokio::spawn(async move {
-        persist_fill_events(&fills_pool, fill_receiver).await;
+        loop {
+            persist_fill_events(&fills_pool, &mut fill_receiver).await.unwrap();
+        }
     }));
 
-    let (candle_sender, candle_receiver) = mpsc::channel::<Vec<Candle>>(1000);
+    let (candle_sender, mut candle_receiver) = mpsc::channel::<Vec<Candle>>(1000);
 
     for market in market_infos.into_iter() {
         let sender = candle_sender.clone();
         let batch_pool = pool.clone();
         handles.push(tokio::spawn(async move {
-            batch_for_market(batch_pool, &sender, &market).await;
+            batch_for_market(batch_pool, &sender, &market).await.unwrap();
             println!("SOMETHING WENT WRONG");
         }));
     }
 
     let persist_pool = pool.clone();
     handles.push(tokio::spawn(async move {
-        persist_candles(persist_pool, candle_receiver).await;
+        loop {
+            persist_candles(persist_pool.clone(), &mut candle_receiver).await.unwrap();
+        }
     }));
 
     futures::future::join_all(handles).await;

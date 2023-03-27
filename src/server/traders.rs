@@ -31,8 +31,9 @@ pub async fn get_top_traders_by_base_volume(
     let from = to_timestampz(info.from);
     let to = to_timestampz(info.to);
 
+    let mut conn = context.pool.acquire().await.unwrap();
     let raw_traders = match fetch_top_traders_by_base_volume_from(
-        &context.pool,
+        &mut conn,
         &selected_market.address,
         from,
         to,
@@ -70,8 +71,9 @@ pub async fn get_top_traders_by_quote_volume(
     let from = to_timestampz(info.from);
     let to = to_timestampz(info.to);
 
+    let mut conn = context.pool.acquire().await.unwrap();
     let raw_traders = match fetch_top_traders_by_quote_volume_from(
-        &context.pool,
+        &mut conn,
         &selected_market.address,
         from,
         to,

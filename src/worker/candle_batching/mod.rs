@@ -2,7 +2,7 @@ pub mod higher_order_candles;
 pub mod minute_candles;
 
 use chrono::Duration;
-use sqlx::{Pool, Postgres};
+use sqlx::{pool::PoolConnection, Pool, Postgres};
 use strum::IntoEnumIterator;
 use tokio::{sync::mpsc::Sender, time::sleep};
 
@@ -17,14 +17,14 @@ pub async fn batch_for_market(
     pool: Pool<Postgres>,
     candles_sender: &Sender<Vec<Candle>>,
     market: &MarketInfo,
-) {
+) -> anyhow::Result<()> {
     loop {
         let sender = candles_sender.clone();
-        let pool_clone = pool.clone();
         let market_clone = market.clone();
+        let mut conn = pool.acquire().await?;
         loop {
-            sleep(Duration::milliseconds(2000).to_std().unwrap()).await;
-            match batch_inner(&pool_clone, &sender, &market_clone).await {
+            sleep(Duration::milliseconds(2000).to_std()?).await;
+            match batch_inner(&mut conn, &sender, &market_clone).await {
                 Ok(_) => {}
                 Err(e) => {
                     println!(
@@ -41,19 +41,19 @@ pub async fn batch_for_market(
 }
 
 async fn batch_inner(
-    pool: &Pool<Postgres>,
+    conn: &mut PoolConnection<Postgres>,
     candles_sender: &Sender<Vec<Candle>>,
     market: &MarketInfo,
 ) -> anyhow::Result<()> {
     let market_name = &market.name.clone();
-    let candles = batch_1m_candles(pool, market).await?;
+    let candles = batch_1m_candles(conn, market).await?;
     send_candles(candles, candles_sender).await;
 
     for resolution in Resolution::iter() {
         if resolution == Resolution::R1m {
             continue;
         }
-        let candles = batch_higher_order_candles(pool, market_name, resolution).await?;
+        let candles = batch_higher_order_candles(conn, market_name, resolution).await?;
         send_candles(candles, candles_sender).await;
     }
     Ok(())
