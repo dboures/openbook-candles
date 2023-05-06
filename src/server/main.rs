@@ -11,10 +11,11 @@ use openbook_candles::{
     structs::markets::{fetch_market_infos, load_markets},
     utils::{Config, WebContext},
 };
-use traders::{get_top_traders_by_base_volume, get_top_traders_by_quote_volume};
 use std::env;
+use traders::{get_top_traders_by_base_volume, get_top_traders_by_quote_volume};
 
 mod candles;
+mod coingecko;
 mod markets;
 mod server_error;
 mod traders;
@@ -45,6 +46,7 @@ async fn main() -> std::io::Result<()> {
     let pool = connect_to_database(&config).await.unwrap();
 
     let context = Data::new(WebContext {
+        rpc_url,
         pool,
         markets: market_infos,
     });
@@ -59,7 +61,8 @@ async fn main() -> std::io::Result<()> {
                     .service(get_candles)
                     .service(get_top_traders_by_base_volume)
                     .service(get_top_traders_by_quote_volume)
-                    .service(get_markets),
+                    .service(get_markets)
+                    .service(coingecko::service()),
             )
     })
     .bind(("127.0.0.1", 8080))?

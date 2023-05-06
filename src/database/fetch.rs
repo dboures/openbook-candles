@@ -2,7 +2,13 @@ use chrono::{DateTime, Utc};
 use sqlx::{pool::PoolConnection, Postgres};
 
 use crate::{
-    structs::{candle::Candle, openbook::PgOpenBookFill, resolution::Resolution, trader::PgTrader},
+    structs::{
+        candle::Candle,
+        coingecko::{PgCoinGecko24HighLow, PgCoinGecko24HourVolume},
+        openbook::PgOpenBookFill,
+        resolution::Resolution,
+        trader::PgTrader,
+    },
     utils::AnyhowWrap,
 };
 
@@ -182,7 +188,7 @@ pub async fn fetch_tradingview_candles(
         and resolution = $2
         and start_time >= $3
         and end_time <= $4
-        ORDER BY start_time asc"#, // TODO: order?
+        ORDER BY start_time asc"#,
         market_name,
         resolution.to_string(),
         start_time,
@@ -259,6 +265,59 @@ LIMIT 10000"#,
         market_address_string,
         start_time,
         end_time
+    )
+    .fetch_all(conn)
+    .await
+    .map_err_anyhow()
+}
+
+pub async fn fetch_coingecko_24h_volume(
+    conn: &mut PoolConnection<Postgres>,
+) -> anyhow::Result<Vec<PgCoinGecko24HourVolume>> {
+    sqlx::query_as!(
+        PgCoinGecko24HourVolume,
+        r#"select market as "address!",
+        sum(native_qty_paid) as "raw_quote_size!",
+        sum(native_qty_received) as "raw_base_size!"
+        from fills 
+        where "time" >= current_timestamp - interval '1 day' 
+        and bid = true
+        group by market"#
+    )
+    .fetch_all(conn)
+    .await
+    .map_err_anyhow()
+}
+
+pub async fn fetch_coingecko_24h_high_low(
+    conn: &mut PoolConnection<Postgres>,
+) -> anyhow::Result<Vec<PgCoinGecko24HighLow>> {
+    sqlx::query_as!(
+        PgCoinGecko24HighLow,
+        r#"select 
+        g.market_name as "market_name!", 
+        g.high as "high!", 
+        g.low as "low!", 
+        c."close" as "close!"
+      from 
+        (
+          SELECT 
+            market_name, 
+            max(start_time) as "start_time", 
+            max(high) as "high", 
+            min(low) as "low" 
+          from 
+            candles 
+          where 
+            "resolution" = '1M' 
+            and "start_time" >= current_timestamp - interval '1 day' 
+          group by 
+            market_name
+        ) as g 
+        join candles c on g.market_name = c.market_name 
+        and g.start_time = c.start_time 
+      where 
+        c.resolution = '1M'"#
     )
     .fetch_all(conn)
     .await

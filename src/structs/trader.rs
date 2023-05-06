@@ -41,6 +41,7 @@ pub struct TraderResponse {
     pub traders: Vec<Trader>,
 }
 
+// Note that the Postgres queries only return volumes in base or quote
 pub fn calculate_trader_volume(trader: PgTrader, decimals: u8) -> Trader {
     let bid_size = trader.raw_bid_size / token_factor(decimals);
     let ask_size = trader.raw_ask_size / token_factor(decimals);

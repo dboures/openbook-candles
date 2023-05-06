@@ -24,10 +24,12 @@ pub struct Config {
 }
 
 pub struct WebContext {
+    pub rpc_url: String,
     pub markets: Vec<MarketInfo>,
     pub pool: Pool<Postgres>,
 }
 
+#[allow(deprecated)]
 pub fn to_timestampz(seconds: u64) -> chrono::DateTime<Utc> {
     chrono::DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(seconds as i64, 0), Utc)
 }

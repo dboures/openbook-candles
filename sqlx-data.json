@@ -44,6 +44,36 @@
     },
     "query": "CREATE TABLE IF NOT EXISTS fills (\n            id numeric PRIMARY KEY,\n            time timestamptz not null,\n            market text not null,\n            open_orders text not null,\n            open_orders_owner text not null,\n            bid bool not null,\n            maker bool not null,\n            native_qty_paid numeric not null,\n            native_qty_received numeric not null,\n            native_fee_or_rebate numeric not null,\n            fee_tier text not null,\n            order_id text not null\n        )"
   },
+  "409267a0a1c925b3723396b1534b17ccdd7a27aac7bbcfaef159dbc6e3005625": {
+    "describe": {
+      "columns": [
+        {
+          "name": "address!",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "raw_quote_size!",
+          "ordinal": 1,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "raw_base_size!",
+          "ordinal": 2,
+          "type_info": "Numeric"
+        }
+      ],
+      "nullable": [
+        false,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "select market as \"address!\",\n        sum(native_qty_paid) as \"raw_quote_size!\",\n        sum(native_qty_received) as \"raw_base_size!\"\n        from fills \n        where \"time\" >= current_timestamp - interval '1 day' \n        and bid = true\n        group by market"
+  },
   "4bab7d4329b2969b2ba610546c660207740c9bafe644df55fa57101df30e4899": {
     "describe": {
       "columns": [],
@@ -73,6 +103,42 @@
       }
     },
     "query": "CREATE INDEX IF NOT EXISTS idx_market_time ON fills (market, time)"
+  },
+  "81d619e2680874afff756031aa4fef16678a7ea226a259e1bdb316bf52478939": {
+    "describe": {
+      "columns": [
+        {
+          "name": "market_name!",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "high!",
+          "ordinal": 1,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "low!",
+          "ordinal": 2,
+          "type_info": "Numeric"
+        },
+        {
+          "name": "close!",
+          "ordinal": 3,
+          "type_info": "Numeric"
+        }
+      ],
+      "nullable": [
+        true,
+        null,
+        null,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "select \n        g.market_name as \"market_name!\", \n        g.high as \"high!\", \n        g.low as \"low!\", \n        c.\"close\" as \"close!\"\n      from \n        (\n          SELECT \n            market_name, \n            max(start_time) as \"start_time\", \n            max(high) as \"high\", \n            min(low) as \"low\" \n          from \n            candles \n          where \n            \"resolution\" = '1M' \n            and \"start_time\" >= current_timestamp - interval '1 day' \n          group by \n            market_name\n        ) as g \n        join candles c on g.market_name = c.market_name \n        and g.start_time = c.start_time \n      where \n        c.resolution = '1M'"
   },
   "866773102b03b002e9d0535d3173f36264e1d30a46a5ec8240b0ea8076d6d1c5": {
     "describe": {

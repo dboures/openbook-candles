@@ -14,5 +14,9 @@
     {
         "name" : "BONK/SOL",
         "address" : "Hs97TCZeuYiJxooo3U73qEHXg3dKpRL4uYKYRryEK9CF"
+    },
+    {
+        "name" : "BTC/USDC",
+        "address" : "3BAKsQd3RuhZKES2DGysMhjBdwjZYKYmxRqnSMtZ4KSN"
     }
 ]

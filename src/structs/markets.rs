@@ -18,6 +18,8 @@ pub struct MarketInfo {
     pub quote_decimals: u8,
     pub base_mint_key: String,
     pub quote_mint_key: String,
+    pub bids_key: String,
+    pub asks_key: String,
     pub base_lot_size: u64,
     pub quote_lot_size: u64,
 }
@@ -72,6 +74,8 @@ pub async fn fetch_market_infos(
                 AnchorDeserialize::deserialize(&mut market_bytes).unwrap();
 
             let market_address_string = serum_bytes_to_pubkey(raw_market.own_address).to_string();
+            let bids_key = serum_bytes_to_pubkey(raw_market.bids);
+            let asks_key = serum_bytes_to_pubkey(raw_market.asks);
             let base_mint_key = serum_bytes_to_pubkey(raw_market.coin_mint);
             let quote_mint_key = serum_bytes_to_pubkey(raw_market.pc_mint);
             mint_key_map.insert(base_mint_key, 0);
@@ -91,6 +95,8 @@ pub async fn fetch_market_infos(
                 quote_decimals: 0,
                 base_mint_key: base_mint_key.to_string(),
                 quote_mint_key: quote_mint_key.to_string(),
+                bids_key: bids_key.to_string(),
+                asks_key: asks_key.to_string(),
                 base_lot_size: raw_market.coin_lot_size,
                 quote_lot_size: raw_market.pc_lot_size,
             }
