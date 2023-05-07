@@ -54,12 +54,12 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
 
     let mut c1 = context.pool.acquire().await.unwrap();
     let mut c2 = context.pool.acquire().await.unwrap();
-    let bba_fut = get_best_bids_and_asks(client, markets);
+    // let bba_fut = get_best_bids_and_asks(client, markets);
     let volume_fut = fetch_coingecko_24h_volume(&mut c1);
     let high_low_fut = fetch_coingecko_24h_high_low(&mut c2);
 
-    let ((best_bids, best_asks), volume_query, high_low_quey) =
-        join!(bba_fut, volume_fut, high_low_fut,);
+    let (volume_query, high_low_quey) =
+        join!(volume_fut, high_low_fut,);
 
     let raw_volumes = match volume_query {
         Ok(c) => c,
@@ -79,7 +79,7 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
     let tickers = markets
         .iter()
         .enumerate()
-        .map(|(index, m)| {
+        .map(|(_index, m)| {
             let name = m.name.clone();
             let high_low = high_low
                 .iter()
@@ -96,8 +96,6 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
                 last_price: high_low.close.to_string(),
                 base_volume: volume.base_volume.to_string(),
                 target_volume: volume.target_volume.to_string(),
-                bid: best_bids[index].to_string(),
-                ask: best_asks[index].to_string(),
                 high: high_low.high.to_string(),
                 low: high_low.low.to_string(),
             }

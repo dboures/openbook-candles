@@ -27,8 +27,8 @@ pub struct CoinGeckoTicker {
     pub last_price: String,
     pub base_volume: String,
     pub target_volume: String,
-    pub bid: String,
-    pub ask: String,
+    // pub bid: String,
+    // pub ask: String,
     pub high: String,
     pub low: String,
 }
@@ -41,8 +41,8 @@ pub struct PgCoinGecko24HourVolume {
 impl PgCoinGecko24HourVolume {
     pub fn convert_to_readable(&self, markets: &Vec<MarketInfo>) -> CoinGecko24HourVolume {
         let market = markets.iter().find(|m| m.address == self.address).unwrap();
-        let base_volume = (self.raw_base_size / token_factor(market.base_decimals)).to_string();
-        let target_volume = (self.raw_quote_size / token_factor(market.quote_decimals)).to_string();
+        let base_volume = self.raw_base_size / token_factor(market.base_decimals);
+        let target_volume = self.raw_quote_size / token_factor(market.quote_decimals);
         CoinGecko24HourVolume {
             market_name: market.name.clone(),
             base_volume,
@@ -54,8 +54,8 @@ impl PgCoinGecko24HourVolume {
 #[derive(Debug, Default)]
 pub struct CoinGecko24HourVolume {
     pub market_name: String,
-    pub base_volume: String,
-    pub target_volume: String,
+    pub base_volume: Decimal,
+    pub target_volume: Decimal,
 }
 
 #[derive(Debug, Default)]
