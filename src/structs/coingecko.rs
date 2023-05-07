@@ -20,7 +20,6 @@ pub struct CoinGeckoTicker {
     pub last_price: f64,
     pub base_volume: f64,
     pub target_volume: f64,
-    pub liquidity_in_usd: f64,
     pub bid: f64,
     pub ask: f64,
     pub high: f64,
