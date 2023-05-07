@@ -1,8 +1,15 @@
-use num_traits::ToPrimitive;
 use serde::Serialize;
 use sqlx::types::Decimal;
 
 use super::{markets::MarketInfo, openbook::token_factor};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CoinGeckoOrderBook {
+    pub ticker_id: String,
+    pub timestamp: String, //as milliseconds
+    pub bids: Vec<(String, String)>,
+    pub asks: Vec<(String, String)>,
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CoinGeckoPair {
@@ -17,13 +24,13 @@ pub struct CoinGeckoTicker {
     pub ticker_id: String,
     pub base_currency: String,
     pub target_currency: String,
-    pub last_price: f64,
-    pub base_volume: f64,
-    pub target_volume: f64,
-    pub bid: f64,
-    pub ask: f64,
-    pub high: f64,
-    pub low: f64,
+    pub last_price: String,
+    pub base_volume: String,
+    pub target_volume: String,
+    pub bid: String,
+    pub ask: String,
+    pub high: String,
+    pub low: String,
 }
 
 pub struct PgCoinGecko24HourVolume {
@@ -34,12 +41,8 @@ pub struct PgCoinGecko24HourVolume {
 impl PgCoinGecko24HourVolume {
     pub fn convert_to_readable(&self, markets: &Vec<MarketInfo>) -> CoinGecko24HourVolume {
         let market = markets.iter().find(|m| m.address == self.address).unwrap();
-        let base_volume = (self.raw_base_size / token_factor(market.base_decimals))
-            .to_f64()
-            .unwrap();
-        let target_volume = (self.raw_quote_size / token_factor(market.quote_decimals))
-            .to_f64()
-            .unwrap();
+        let base_volume = (self.raw_base_size / token_factor(market.base_decimals)).to_string();
+        let target_volume = (self.raw_quote_size / token_factor(market.quote_decimals)).to_string();
         CoinGecko24HourVolume {
             market_name: market.name.clone(),
             base_volume,
@@ -51,8 +54,8 @@ impl PgCoinGecko24HourVolume {
 #[derive(Debug, Default)]
 pub struct CoinGecko24HourVolume {
     pub market_name: String,
-    pub base_volume: f64,
-    pub target_volume: f64,
+    pub base_volume: String,
+    pub target_volume: String,
 }
 
 #[derive(Debug, Default)]

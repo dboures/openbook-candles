@@ -12,7 +12,7 @@ use {
 };
 
 #[derive(Debug, Deserialize)]
-pub struct Params {
+pub struct TraderParams {
     pub market_name: String,
     pub from: u64,
     pub to: u64,
@@ -20,7 +20,7 @@ pub struct Params {
 
 #[get("/traders/base-volume")]
 pub async fn get_top_traders_by_base_volume(
-    info: web::Query<Params>,
+    info: web::Query<TraderParams>,
     context: web::Data<WebContext>,
 ) -> Result<HttpResponse, ServerError> {
     let selected_market = context.markets.iter().find(|x| x.name == info.market_name);
@@ -56,7 +56,7 @@ pub async fn get_top_traders_by_base_volume(
 
 #[get("/traders/quote-volume")]
 pub async fn get_top_traders_by_quote_volume(
-    info: web::Query<Params>,
+    info: web::Query<TraderParams>,
     context: web::Data<WebContext>,
 ) -> Result<HttpResponse, ServerError> {
     let selected_market = context.markets.iter().find(|x| x.name == info.market_name);

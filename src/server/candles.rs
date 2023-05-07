@@ -12,7 +12,7 @@ use {
 };
 
 #[derive(Debug, Deserialize)]
-pub struct Params {
+pub struct CandleParams {
     pub market_name: String,
     pub from: u64,
     pub to: u64,
@@ -21,7 +21,7 @@ pub struct Params {
 
 #[get("/candles")]
 pub async fn get_candles(
-    info: web::Query<Params>,
+    info: web::Query<CandleParams>,
     context: web::Data<WebContext>,
 ) -> Result<HttpResponse, ServerError> {
     let resolution =

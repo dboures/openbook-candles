@@ -1,14 +1,16 @@
 use anchor_lang::prelude::Pubkey;
-use arrayref::{array_refs, mut_array_refs};
-use bytemuck::{cast, cast_mut, cast_ref, cast_slice, cast_slice_mut, Pod, Zeroable};
+use arrayref::array_refs;
+use bytemuck::{cast_mut, cast_ref, cast_slice, Pod, Zeroable};
 use futures::join;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use num_traits::ToPrimitive;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use sqlx::types::Decimal;
 use std::{
-    convert::{identity, TryFrom},
+    convert::TryFrom,
     mem::{align_of, size_of},
-    num::NonZeroU64, str::FromStr,
+    num::NonZeroU64,
+    str::FromStr,
 };
 
 use crate::structs::openbook::token_factor;
@@ -52,14 +54,6 @@ struct InnerNode {
 }
 unsafe impl Zeroable for InnerNode {}
 unsafe impl Pod for InnerNode {}
-
-impl InnerNode {
-    fn walk_down(&self, search_key: u128) -> (NodeHandle, bool) {
-        let crit_bit_mask = (1u128 << 127) >> self.prefix_len;
-        let crit_bit = (search_key & crit_bit_mask) != 0;
-        (self.children[crit_bit as usize], crit_bit)
-    }
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(packed)]
@@ -106,6 +100,21 @@ impl LeafNode {
     #[inline]
     pub fn price(&self) -> NonZeroU64 {
         NonZeroU64::new((self.key >> 64) as u64).unwrap()
+    }
+
+    pub fn readable_price(&self, market: &MarketInfo) -> Decimal {
+        let price_lots = Decimal::from((self.key >> 64) as u64);
+        let base_multiplier = token_factor(market.base_decimals);
+        let quote_multiplier = token_factor(market.quote_decimals);
+        let base_lot_size = Decimal::from(market.base_lot_size);
+        let quote_lot_size = Decimal::from(market.quote_lot_size);
+        (price_lots * quote_lot_size * base_multiplier) / (base_lot_size * quote_multiplier)
+    }
+
+    pub fn readable_quantity(&self, market: &MarketInfo) -> Decimal {
+        let base_lot_size = Decimal::from(market.base_lot_size);
+        let base_multiplier = token_factor(market.base_decimals);
+        Decimal::from(self.quantity) * base_lot_size / base_multiplier
     }
 
     #[inline]
@@ -186,27 +195,6 @@ enum NodeRefMut<'a> {
 }
 
 impl AnyNode {
-    fn key(&self) -> Option<u128> {
-        match self.case()? {
-            NodeRef::Inner(inner) => Some(inner.key),
-            NodeRef::Leaf(leaf) => Some(leaf.key),
-        }
-    }
-
-    fn prefix_len(&self) -> u32 {
-        match self.case().unwrap() {
-            NodeRef::Inner(&InnerNode { prefix_len, .. }) => prefix_len,
-            NodeRef::Leaf(_) => 128,
-        }
-    }
-
-    fn children(&self) -> Option<[u32; 2]> {
-        match self.case().unwrap() {
-            NodeRef::Inner(&InnerNode { children, .. }) => Some(children),
-            NodeRef::Leaf(_) => None,
-        }
-    }
-
     fn case(&self) -> Option<NodeRef> {
         match NodeTag::try_from(self.tag) {
             Ok(NodeTag::InnerNode) => Some(NodeRef::Inner(cast_ref(self))),
@@ -272,14 +260,6 @@ const SLAB_HEADER_LEN: usize = size_of::<SlabHeader>();
 unsafe fn invariant(check: bool) {
     if check {
         unreachable!();
-    }
-}
-
-#[cfg(not(debug_assertions))]
-#[inline(always)]
-unsafe fn invariant(check: bool) {
-    if check {
-        std::hint::unreachable_unchecked();
     }
 }
 
@@ -369,6 +349,37 @@ impl Slab {
         }
     }
 
+    pub fn traverse(&self, descending: bool) -> Vec<&LeafNode> {
+        fn walk_rec<'a>(
+            slab: &'a Slab,
+            sub_root: NodeHandle,
+            buf: &mut Vec<&'a LeafNode>,
+            descending: bool,
+        ) {
+            match slab.get(sub_root).unwrap().case().unwrap() {
+                NodeRef::Leaf(leaf) => {
+                    buf.push(leaf);
+                }
+                NodeRef::Inner(inner) => {
+                    if descending {
+                        walk_rec(slab, inner.children[1], buf, descending);
+                        walk_rec(slab, inner.children[0], buf, descending);
+                    } else {
+                        walk_rec(slab, inner.children[0], buf, descending);
+                        walk_rec(slab, inner.children[1], buf, descending);
+                    }
+                }
+            }
+        }
+
+        let mut buf = Vec::with_capacity(self.header().leaf_count as usize);
+        if let Some(r) = self.root() {
+            walk_rec(self, r, &mut buf, descending);
+        }
+        assert_eq!(buf.len(), buf.capacity());
+        buf
+    }
+
     #[inline]
     pub fn find_min(&self) -> Option<&LeafNode> {
         let handle = self.find_min_max(false).unwrap();
@@ -393,13 +404,7 @@ impl Slab {
         } else {
             self.find_min()
         };
-
-        let price_lots = Decimal::from(min.unwrap().key >> 64);
-        let base_multiplier = token_factor(market.base_decimals);
-        let quote_multiplier = token_factor(market.quote_decimals);
-        let base_lot_size = Decimal::from(market.base_lot_size);
-        let quote_lot_size = Decimal::from(market.quote_lot_size);
-        (price_lots * quote_lot_size * base_multiplier) / (base_lot_size * quote_multiplier)
+        min.unwrap().readable_price(market)
     }
 }
 
@@ -451,4 +456,58 @@ pub async fn get_best_bids_and_asks(
         })
         .collect::<Vec<_>>();
     (best_bids, best_asks)
+}
+
+pub async fn get_orderbooks_with_depth(
+    client: RpcClient,
+    market: &MarketInfo,
+    depth: usize,
+) -> (Vec<(String, String)>, Vec<(String, String)>) {
+    let keys = vec![
+        Pubkey::from_str(&market.bids_key).unwrap(),
+        Pubkey::from_str(&market.asks_key).unwrap(),
+    ];
+
+    // let start = Instant::now();
+    let mut results = client.get_multiple_accounts(&keys).await.unwrap();
+    // let duration = start.elapsed();
+    // println!("Time elapsed in rpc call is: {:?}", duration);
+
+    let mut ask_acc = results.pop().unwrap().unwrap();
+    let mut bid_acc = results.pop().unwrap().unwrap();
+    let bids = Slab::new(&mut bid_acc.data);
+    let asks = Slab::new(&mut ask_acc.data);
+
+    let bid_leaves = bids.traverse(true);
+    let ask_leaves = asks.traverse(false);
+    let bid_levels = construct_levels(bid_leaves, market, depth);
+    let ask_levels = construct_levels(ask_leaves, market, depth);
+
+    (bid_levels, ask_levels)
+}
+
+fn construct_levels(
+    leaves: Vec<&LeafNode>,
+    market: &MarketInfo,
+    depth: usize,
+) -> Vec<(String, String)> {
+    let mut levels: Vec<(f64, f64)> = vec![];
+    for x in leaves {
+        let len = levels.len();
+        if len > 0 && levels[len - 1].0 == x.readable_price(market).to_f64().unwrap() {
+            let q = x.readable_quantity(market).to_f64().unwrap();
+            levels[len - 1].1 += q;
+        } else if len == depth {
+            break;
+        } else {
+            levels.push((
+                x.readable_price(market).to_f64().unwrap(),
+                x.readable_quantity(market).to_f64().unwrap(),
+            ));
+        }
+    }
+    levels
+        .into_iter()
+        .map(|x| (x.0.to_string(), x.1.to_string()))
+        .collect()
 }

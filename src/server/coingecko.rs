@@ -1,15 +1,20 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use crate::server_error::ServerError;
 use actix_web::{get, web, HttpResponse, Scope};
 use futures::join;
-use num_traits::ToPrimitive;
 use openbook_candles::{
     database::fetch::{fetch_coingecko_24h_high_low, fetch_coingecko_24h_volume},
     structs::{
-        coingecko::{CoinGecko24HourVolume, CoinGeckoPair, CoinGeckoTicker, PgCoinGecko24HighLow},
-        slab::{get_best_bids_and_asks},
+        coingecko::{
+            CoinGecko24HourVolume, CoinGeckoOrderBook, CoinGeckoPair, CoinGeckoTicker,
+            PgCoinGecko24HighLow,
+        },
+        slab::{get_best_bids_and_asks, get_orderbooks_with_depth},
     },
     utils::WebContext,
 };
+use serde::Deserialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 
 pub fn service() -> Scope {
@@ -17,6 +22,12 @@ pub fn service() -> Scope {
         .service(pairs)
         .service(tickers)
         .service(orderbook)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OrderBookParams {
+    pub ticker_id: String, // market_name
+    pub depth: usize,
 }
 
 #[get("/pairs")]
@@ -47,11 +58,8 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
     let volume_fut = fetch_coingecko_24h_volume(&mut c1);
     let high_low_fut = fetch_coingecko_24h_high_low(&mut c2);
 
-    let ((best_bids, best_asks), volume_query, high_low_quey) = join!(
-        bba_fut,
-        volume_fut,
-        high_low_fut,
-    );
+    let ((best_bids, best_asks), volume_query, high_low_quey) =
+        join!(bba_fut, volume_fut, high_low_fut,);
 
     let raw_volumes = match volume_query {
         Ok(c) => c,
@@ -85,13 +93,13 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
                 ticker_id: m.name.clone(),
                 base_currency: m.base_mint_key.clone(),
                 target_currency: m.quote_mint_key.clone(),
-                last_price: high_low.close.to_f64().unwrap(),
-                base_volume: volume.base_volume.to_f64().unwrap(),
-                target_volume: volume.target_volume.to_f64().unwrap(),
-                bid: best_bids[index].to_f64().unwrap(),
-                ask: best_asks[index].to_f64().unwrap(),
-                high: high_low.high.to_f64().unwrap(),
-                low: high_low.low.to_f64().unwrap(),
+                last_price: high_low.close.to_string(),
+                base_volume: volume.base_volume.to_string(),
+                target_volume: volume.target_volume.to_string(),
+                bid: best_bids[index].to_string(),
+                ask: best_asks[index].to_string(),
+                high: high_low.high.to_string(),
+                low: high_low.low.to_string(),
             }
         })
         .collect::<Vec<CoinGeckoTicker>>();
@@ -100,23 +108,27 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
 }
 
 #[get("/orderbook")]
-pub async fn orderbook(context: web::Data<WebContext>) -> Result<HttpResponse, ServerError> {
+pub async fn orderbook(
+    info: web::Query<OrderBookParams>,
+    context: web::Data<WebContext>,
+) -> Result<HttpResponse, ServerError> {
     let client = RpcClient::new(context.rpc_url.clone());
+    let market_name = &info.ticker_id;
+    let market = context
+        .markets
+        .iter()
+        .find(|m| m.name == *market_name)
+        .ok_or(ServerError::MarketNotFound)?;
+    let depth = info.depth;
 
-    let markets = &context.markets;
-
-    let (best_bids, best_asks) = get_best_bids_and_asks(client, markets).await;
-
-    // let bids = bid_bytes.into_iter().map(|mut x| Slab::new(x.as_mut_slice())).collect::<Vec<_>>();
-    // Slab::new(&mut x.data)
-
-    // let mut bb = bid_bytes[0].clone();
-    // let data_end = bb.len() - 7;
-
-    // let goo = Slab::new(&mut bb[13..data_end]);
-
-    // decode results
-
-    let markets = context.markets.clone();
-    Ok(HttpResponse::Ok().json(markets))
+    let now = SystemTime::now();
+    let timestamp = now.duration_since(UNIX_EPOCH).unwrap().as_millis();
+    let (bid_levels, ask_levels) = get_orderbooks_with_depth(client, market, depth).await;
+    let result = CoinGeckoOrderBook {
+        timestamp: timestamp.to_string(),
+        ticker_id: market.name.clone(),
+        bids: bid_levels,
+        asks: ask_levels,
+    };
+    Ok(HttpResponse::Ok().json(result))
 }
