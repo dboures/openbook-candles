@@ -1,14 +1,12 @@
-use std::str::FromStr;
-
 use crate::server_error::ServerError;
 use actix_web::{get, web, HttpResponse, Scope};
-use anchor_lang::prelude::Pubkey;
 use futures::join;
 use num_traits::ToPrimitive;
 use openbook_candles::{
     database::fetch::{fetch_coingecko_24h_high_low, fetch_coingecko_24h_volume},
-    structs::coingecko::{
-        CoinGecko24HourVolume, CoinGeckoPair, CoinGeckoTicker, PgCoinGecko24HighLow,
+    structs::{
+        coingecko::{CoinGecko24HourVolume, CoinGeckoPair, CoinGeckoTicker, PgCoinGecko24HighLow},
+        slab::{get_best_bids_and_asks},
     },
     utils::WebContext,
 };
@@ -40,16 +38,26 @@ pub async fn pairs(context: web::Data<WebContext>) -> Result<HttpResponse, Serve
 
 #[get("/tickers")]
 pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, ServerError> {
-    let markets = context.markets.clone();
+    let client = RpcClient::new(context.rpc_url.clone());
+    let markets = &context.markets;
 
-    // rpc get bid ask liquidity
+    let mut c1 = context.pool.acquire().await.unwrap();
+    let mut c2 = context.pool.acquire().await.unwrap();
+    let bba_fut = get_best_bids_and_asks(client, markets);
+    let volume_fut = fetch_coingecko_24h_volume(&mut c1);
+    let high_low_fut = fetch_coingecko_24h_high_low(&mut c2);
 
-    let mut conn = context.pool.acquire().await.unwrap();
-    let raw_volumes = match fetch_coingecko_24h_volume(&mut conn).await {
+    let ((best_bids, best_asks), volume_query, high_low_quey) = join!(
+        bba_fut,
+        volume_fut,
+        high_low_fut,
+    );
+
+    let raw_volumes = match volume_query {
         Ok(c) => c,
         Err(_) => return Err(ServerError::DbQueryError),
     };
-    let high_low = match fetch_coingecko_24h_high_low(&mut conn).await {
+    let high_low = match high_low_quey {
         Ok(c) => c,
         Err(_) => return Err(ServerError::DbQueryError),
     };
@@ -62,7 +70,8 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
         .collect();
     let tickers = markets
         .iter()
-        .map(|m| {
+        .enumerate()
+        .map(|(index, m)| {
             let name = m.name.clone();
             let high_low = high_low
                 .iter()
@@ -79,9 +88,8 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
                 last_price: high_low.close.to_f64().unwrap(),
                 base_volume: volume.base_volume.to_f64().unwrap(),
                 target_volume: volume.target_volume.to_f64().unwrap(),
-                liquidity_in_usd: 0.0,
-                bid: 0.0,
-                ask: 0.0,
+                bid: best_bids[index].to_f64().unwrap(),
+                ask: best_asks[index].to_f64().unwrap(),
                 high: high_low.high.to_f64().unwrap(),
                 low: high_low.low.to_f64().unwrap(),
             }
@@ -95,26 +103,17 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
 pub async fn orderbook(context: web::Data<WebContext>) -> Result<HttpResponse, ServerError> {
     let client = RpcClient::new(context.rpc_url.clone());
 
-    let markets = context.markets.clone();
-    let bid_keys = markets
-        .iter()
-        .map(|m| Pubkey::from_str(&m.bids_key).unwrap())
-        .collect::<Vec<Pubkey>>();
-    let ask_keys = markets
-        .iter()
-        .map(|m| Pubkey::from_str(&m.asks_key).unwrap())
-        .collect::<Vec<Pubkey>>();
+    let markets = &context.markets;
 
-    // client.get_multiple_accounts(&bid_keys)
+    let (best_bids, best_asks) = get_best_bids_and_asks(client, markets).await;
 
-    let (bid_results, _ask_results) = join!(
-        client.get_multiple_accounts(&bid_keys),
-        client.get_multiple_accounts(&ask_keys)
-    );
+    // let bids = bid_bytes.into_iter().map(|mut x| Slab::new(x.as_mut_slice())).collect::<Vec<_>>();
+    // Slab::new(&mut x.data)
 
-    let x = bid_results.unwrap();
+    // let mut bb = bid_bytes[0].clone();
+    // let data_end = bb.len() - 7;
 
-    println!("{:?}", x);
+    // let goo = Slab::new(&mut bb[13..data_end]);
 
     // decode results
 
