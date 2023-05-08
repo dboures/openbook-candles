@@ -263,6 +263,14 @@ unsafe fn invariant(check: bool) {
     }
 }
 
+#[cfg(not(debug_assertions))]
+#[inline(always)]
+unsafe fn invariant(check: bool) {
+    if check {
+        std::hint::unreachable_unchecked();
+    }
+}
+
 /// Mainly copied from the original code, slightly modified to make working with it easier.
 #[repr(transparent)]
 pub struct Slab([u8]);
