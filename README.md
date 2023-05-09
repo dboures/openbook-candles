@@ -214,3 +214,135 @@ Returns the top traders sorted by quote token volume (limited to 10,000)
         }
     ]
 }
+
+```
+
+# CoinGecko APIs
+
+### Pairs
+
+**Request:**
+
+`GET /api/coingecko/pairs`
+
+
+Returns a summary on the trading pairs available on OpenBook.
+
+**Response:**
+
+```json
+[
+  {
+    "ticker_id": "SOL/USDC",
+    "base": "So11111111111111111111111111111111111111112",
+    "target": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "pool_id": "8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6"
+  },
+  {
+    "ticker_id": "RLB/USDC",
+    "base": "RLBxxFkseAZ4RgJH3Sqn8jXxhmGoz9jWxDNJMh8pL7a",
+    "target": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "pool_id": "72h8rWaWwfPUL36PAFqyQZU8RT1V3FKG7Nc45aK89xTs"
+  },
+  {
+    "ticker_id": "MNGO/USDC",
+    "base": "MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac",
+    "target": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "pool_id": "3NnxQvDcZXputNMxaxsGvqiKpqgPfSYXpNigZNFcknmD"
+  },
+  {
+    "ticker_id": "BONK/SOL",
+    "base": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    "target": "So11111111111111111111111111111111111111112",
+    "pool_id": "Hs97TCZeuYiJxooo3U73qEHXg3dKpRL4uYKYRryEK9CF"
+  },
+  {
+    "ticker_id": "BTC/USDC",
+    "base": "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
+    "target": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "pool_id": "3BAKsQd3RuhZKES2DGysMhjBdwjZYKYmxRqnSMtZ4KSN"
+  }
+]
+```
+
+### Tickers
+
+**Request:**
+
+`GET /api/coingecko/tickers`
+
+
+Returns 24-hour pricing and volume information on each market available.
+
+
+**Response:**
+
+```json
+[
+  {
+    "ticker_id": "SOL/USDC",
+    "base_currency": "So11111111111111111111111111111111111111112",
+    "target_currency": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "last_price": "21.33",
+    "base_volume": "202673.744076",
+    "target_volume": "4276416.4158",
+    "high": "21.45",
+    "low": "21.22"
+  }
+]
+```
+
+### OrderBook
+
+**Request:**
+
+`GET /api/coingecko/orderbook/?ticker_id={ticker_id}&depth={depth}`
+
+
+Returns order book information with a specified depth for a given market. 
+
+
+**Response:**
+
+```json
+{
+  "ticker_id": "SOL/USDC",
+  "timestamp": "1683596210291",
+  "bids": [
+    [
+      "20.782",
+      "28.947"
+    ],
+    [
+      "20.773",
+      "19.208"
+    ],
+    [
+      "20.766",
+      "192.977"
+    ],
+    [
+      "20.764",
+      "4.9"
+    ]
+  ],
+  "asks": [
+    [
+      "20.787",
+      "30.791"
+    ],
+    [
+      "20.788",
+      "28.794"
+    ],
+    [
+      "20.804",
+      "61.583"
+    ],
+    [
+      "20.805",
+      "191.958"
+    ]
+  ]
+}
+```
