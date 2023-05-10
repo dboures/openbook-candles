@@ -65,7 +65,7 @@ pub async fn backfill(
 
     while now_time > end_time {
         let rpc_client = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
-        let maybe_r = get_signatures(&rpc_client, before_sig, None).await;
+        let maybe_r = get_signatures(&rpc_client, before_sig).await;
 
         match maybe_r {
             Some((last, time, sigs)) => {
@@ -98,12 +98,11 @@ pub async fn backfill(
 
 
 pub async fn get_signatures(rpc_client: &RpcClient,
-    before_sig: Option<Signature>,
-    limit: Option<usize>) -> Option<(Signature, i64, Vec<RpcConfirmedTransactionStatusWithSignature>)> {
+    before_sig: Option<Signature>) -> Option<(Signature, i64, Vec<RpcConfirmedTransactionStatusWithSignature>)> {
         let rpc_config = GetConfirmedSignaturesForAddress2Config {
             before: before_sig,
             until: None,
-            limit,
+            limit: None,
             commitment: Some(CommitmentConfig::confirmed()),
         };
     
