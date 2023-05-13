@@ -1,0 +1,18 @@
+app = "openbook-candles"
+
+kill_signal = "SIGINT"
+kill_timeout = 5
+
+[processes]
+  server = "server markets.json"
+  worker = "worker markets.json"
+
+[[services]]
+  processes = ["server"]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 1024
+    soft_limit = 1024
