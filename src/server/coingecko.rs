@@ -49,14 +49,12 @@ pub async fn pairs(context: web::Data<WebContext>) -> Result<HttpResponse, Serve
 
 #[get("/tickers")]
 pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, ServerError> {
-    let client = RpcClient::new(context.rpc_url.clone());
+    // let client = RpcClient::new(context.rpc_url.clone());
     let markets = &context.markets;
 
-    let mut c1 = context.pool.acquire().await.unwrap();
-    let mut c2 = context.pool.acquire().await.unwrap();
     // let bba_fut = get_best_bids_and_asks(client, markets);
-    let volume_fut = fetch_coingecko_24h_volume(&mut c1);
-    let high_low_fut = fetch_coingecko_24h_high_low(&mut c2);
+    let volume_fut = fetch_coingecko_24h_volume(&context.pool);
+    let high_low_fut = fetch_coingecko_24h_high_low(&context.pool);
 
     let (volume_query, high_low_quey) = join!(volume_fut, high_low_fut,);
 
@@ -104,7 +102,7 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
     Ok(HttpResponse::Ok().json(tickers))
 }
 
-#[get("/orderbook")]
+#[get("/orderbook")] // TODO: implement an optional geyser version
 pub async fn orderbook(
     info: web::Query<OrderBookParams>,
     context: web::Data<WebContext>,

@@ -1,4 +1,5 @@
 use serde::Serialize;
+use tokio_postgres::Row;
 
 use super::{markets::MarketInfo, openbook::token_factor};
 
@@ -48,6 +49,14 @@ impl PgCoinGecko24HourVolume {
             target_volume,
         }
     }
+
+    pub fn from_row(row: Row) -> Self {
+        PgCoinGecko24HourVolume {
+            address: row.get(0),
+            raw_base_size: row.get(1),
+            raw_quote_size: row.get(2),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -63,4 +72,15 @@ pub struct PgCoinGecko24HighLow {
     pub high: f64,
     pub low: f64,
     pub close: f64,
+}
+
+impl PgCoinGecko24HighLow {
+    pub fn from_row(row: Row) -> Self {
+        PgCoinGecko24HighLow {
+            market_name: row.get(0),
+            high: row.get(1),
+            low: row.get(2),
+            close: row.get(3),
+        }
+    }
 }

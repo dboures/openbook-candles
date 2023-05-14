@@ -1,4 +1,10 @@
-use crate::structs::{candle::Candle, openbook::PgOpenBookFill, resolution::Resolution};
+use crate::structs::{
+    candle::Candle,
+    coingecko::{PgCoinGecko24HighLow, PgCoinGecko24HourVolume},
+    openbook::PgOpenBookFill,
+    resolution::Resolution,
+    trader::PgTrader,
+};
 use chrono::{DateTime, Utc};
 use deadpool_postgres::{GenericClient, Pool};
 
@@ -11,16 +17,16 @@ pub async fn fetch_earliest_fill(
     let stmt = client
         .prepare(
             r#"SELECT 
-    time as "time!",
-    bid as "bid!",
-    maker as "maker!",
-    native_qty_paid as "native_qty_paid!",
-    native_qty_received as "native_qty_received!",
-    native_fee_or_rebate as "native_fee_or_rebate!" 
-    from fills 
-    where market = $1 
-    and maker = true
-    ORDER BY time asc LIMIT 1"#,
+        time as "time!",
+        bid as "bid!",
+        maker as "maker!",
+        native_qty_paid as "native_qty_paid!",
+        native_qty_received as "native_qty_received!",
+        native_fee_or_rebate as "native_fee_or_rebate!" 
+        from fills 
+        where market = $1 
+        and maker = true
+        ORDER BY time asc LIMIT 1"#,
         )
         .await?;
 
@@ -183,4 +189,149 @@ pub async fn fetch_candles_from(
         .await?;
 
     Ok(rows.into_iter().map(|r| Candle::from_row(r)).collect())
+}
+
+pub async fn fetch_top_traders_by_base_volume_from(
+    pool: &Pool,
+    market_address_string: &str,
+    start_time: DateTime<Utc>,
+    end_time: DateTime<Utc>,
+) -> anyhow::Result<Vec<PgTrader>> {
+    let client = pool.get().await?;
+
+    let stmt = client
+        .prepare(
+            r#"SELECT 
+            open_orders_owner, 
+            sum(
+            native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END
+            ) as "raw_ask_size!",
+            sum(
+            native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END
+            ) as "raw_bid_size!"
+        FROM fills
+    WHERE  market = $1
+            AND time >= $2
+            AND time < $3
+    GROUP  BY open_orders_owner
+    ORDER  BY 
+        sum(native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END) 
+        + 
+        sum(native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) 
+    DESC 
+    LIMIT 10000"#,
+        )
+        .await?;
+
+    let rows = client
+        .query(&stmt, &[&market_address_string, &start_time, &end_time])
+        .await?;
+
+    Ok(rows.into_iter().map(|r| PgTrader::from_row(r)).collect())
+}
+
+pub async fn fetch_top_traders_by_quote_volume_from(
+    pool: &Pool,
+    market_address_string: &str,
+    start_time: DateTime<Utc>,
+    end_time: DateTime<Utc>,
+) -> anyhow::Result<Vec<PgTrader>> {
+    let client = pool.get().await?;
+
+    let stmt = client
+        .prepare(
+            r#"SELECT 
+            open_orders_owner, 
+            sum(
+                native_qty_received * CASE bid WHEN true THEN 0 WHEN false THEN 1 END
+            ) as "raw_ask_size!",
+            sum(
+                native_qty_paid * CASE bid WHEN true THEN 1 WHEN false THEN 0 END
+            ) as "raw_bid_size!"
+          FROM fills
+     WHERE  market = $1
+            AND time >= $2
+            AND time < $3
+     GROUP  BY open_orders_owner
+     ORDER  BY 
+        sum(native_qty_received * CASE bid WHEN true THEN 0 WHEN false THEN 1 END) 
+        + 
+        sum(native_qty_paid * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) 
+    DESC  
+    LIMIT 10000"#,
+        )
+        .await?;
+
+    let rows = client
+        .query(&stmt, &[&market_address_string, &start_time, &end_time])
+        .await?;
+
+    Ok(rows.into_iter().map(|r| PgTrader::from_row(r)).collect())
+}
+
+pub async fn fetch_coingecko_24h_volume(
+    pool: &Pool,
+) -> anyhow::Result<Vec<PgCoinGecko24HourVolume>> {
+    let client = pool.get().await?;
+
+    let stmt = client
+        .prepare(
+            r#"select market as "address!",
+        sum(native_qty_paid) as "raw_quote_size!",
+        sum(native_qty_received) as "raw_base_size!"
+        from fills 
+        where "time" >= current_timestamp - interval '1 day' 
+        and bid = true
+        group by market"#,
+        )
+        .await?;
+
+    let rows = client.query(&stmt, &[]).await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| PgCoinGecko24HourVolume::from_row(r))
+        .collect())
+}
+
+pub async fn fetch_coingecko_24h_high_low(
+    pool: &Pool,
+) -> anyhow::Result<Vec<PgCoinGecko24HighLow>> {
+    let client = pool.get().await?;
+
+    let stmt = client
+        .prepare(
+            r#"select 
+        g.market_name as "market_name!", 
+        g.high as "high!", 
+        g.low as "low!", 
+        c."close" as "close!"
+      from 
+        (
+          SELECT 
+            market_name, 
+            max(start_time) as "start_time", 
+            max(high) as "high", 
+            min(low) as "low" 
+          from 
+            candles 
+          where 
+            "resolution" = '1M' 
+            and "start_time" >= current_timestamp - interval '1 day' 
+          group by 
+            market_name
+        ) as g 
+        join candles c on g.market_name = c.market_name 
+        and g.start_time = c.start_time 
+      where 
+        c.resolution = '1M'"#,
+        )
+        .await?;
+
+    let rows = client.query(&stmt, &[]).await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| PgCoinGecko24HighLow::from_row(r))
+        .collect())
 }

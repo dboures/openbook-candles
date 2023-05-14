@@ -1,6 +1,6 @@
 use chrono::{NaiveDateTime, Utc};
+use deadpool_postgres::Pool;
 use serde_derive::Deserialize;
-use sqlx::{Pool, Postgres};
 
 use crate::structs::markets::MarketInfo;
 
@@ -29,7 +29,7 @@ pub struct Config {
 pub struct WebContext {
     pub rpc_url: String,
     pub markets: Vec<MarketInfo>,
-    pub pool: Pool<Postgres>,
+    pub pool: Pool,
 }
 
 #[allow(deprecated)]

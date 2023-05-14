@@ -1,6 +1,6 @@
 use chrono::{DateTime, Duration, DurationRound, Utc};
 use deadpool_postgres::Pool;
-use std::cmp::{max};
+use std::cmp::max;
 
 use crate::{
     database::fetch::{fetch_candles_from, fetch_earliest_candles, fetch_latest_finished_candle},
