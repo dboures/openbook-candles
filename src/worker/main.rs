@@ -1,14 +1,16 @@
 use dotenv;
-use openbook_candles::database::{
-    initialize::{connect_to_database, setup_database},
-    insert::{persist_candles, persist_fill_events},
-};
 use openbook_candles::structs::candle::Candle;
 use openbook_candles::structs::markets::{fetch_market_infos, load_markets};
 use openbook_candles::structs::openbook::OpenBookFillEventLog;
 use openbook_candles::utils::Config;
-use openbook_candles::worker::candle_batching::batch_for_market;
 use openbook_candles::worker::trade_fetching::scrape::scrape;
+use openbook_candles::{
+    database::{
+        initialize::{connect_to_database, setup_database},
+        insert::{persist_candles, persist_fill_events},
+    },
+    worker::candle_batching::batch_for_market,
+};
 use solana_sdk::pubkey::Pubkey;
 use std::env;
 use std::{collections::HashMap, str::FromStr};
@@ -23,15 +25,21 @@ async fn main() -> anyhow::Result<()> {
     let path_to_markets_json = &args[1];
     let rpc_url: String = dotenv::var("RPC_URL").unwrap();
     let database_url: String = dotenv::var("DATABASE_URL").unwrap();
-    let max_pg_pool_connections: u32 = dotenv::var("MAX_PG_POOL_CONNS_WORKER")
+    let use_ssl: bool = dotenv::var("USE_SSL").unwrap().parse::<bool>().unwrap();
+    let ca_cert_path: String = dotenv::var("CA_CERT_PATH").unwrap();
+    let client_key_path: String = dotenv::var("CLIENT_KEY_PATH").unwrap();
+    let max_pg_pool_connections: usize = dotenv::var("MAX_PG_POOL_CONNS_WORKER")
         .unwrap()
-        .parse::<u32>()
+        .parse::<usize>()
         .unwrap();
 
     let config = Config {
         rpc_url: rpc_url.clone(),
         database_url,
         max_pg_pool_connections,
+        use_ssl,
+        ca_cert_path,
+        client_key_path,
     };
 
     let markets = load_markets(&path_to_markets_json);
@@ -49,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
     let (fill_sender, mut fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
 
     handles.push(tokio::spawn(async move {
-        scrape(&config, &fill_sender, &target_markets).await; //TODO: send the vec, it's okay
+        scrape(&config, &fill_sender, &target_markets).await;
     }));
 
     let fills_pool = pool.clone();
@@ -67,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
         let sender = candle_sender.clone();
         let batch_pool = pool.clone();
         handles.push(tokio::spawn(async move {
-            batch_for_market(batch_pool, &sender, &market)
+            batch_for_market(&batch_pool, &sender, &market)
                 .await
                 .unwrap();
             println!("SOMETHING WENT WRONG");

@@ -58,8 +58,7 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
     let volume_fut = fetch_coingecko_24h_volume(&mut c1);
     let high_low_fut = fetch_coingecko_24h_high_low(&mut c2);
 
-    let (volume_query, high_low_quey) =
-        join!(volume_fut, high_low_fut,);
+    let (volume_query, high_low_quey) = join!(volume_fut, high_low_fut,);
 
     let raw_volumes = match volume_query {
         Ok(c) => c,

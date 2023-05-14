@@ -1,5 +1,4 @@
 use serde::Serialize;
-use sqlx::types::Decimal;
 
 use super::{markets::MarketInfo, openbook::token_factor};
 
@@ -35,8 +34,8 @@ pub struct CoinGeckoTicker {
 
 pub struct PgCoinGecko24HourVolume {
     pub address: String,
-    pub raw_base_size: Decimal,
-    pub raw_quote_size: Decimal,
+    pub raw_base_size: f64,
+    pub raw_quote_size: f64,
 }
 impl PgCoinGecko24HourVolume {
     pub fn convert_to_readable(&self, markets: &Vec<MarketInfo>) -> CoinGecko24HourVolume {
@@ -54,14 +53,14 @@ impl PgCoinGecko24HourVolume {
 #[derive(Debug, Default)]
 pub struct CoinGecko24HourVolume {
     pub market_name: String,
-    pub base_volume: Decimal,
-    pub target_volume: Decimal,
+    pub base_volume: f64,
+    pub target_volume: f64,
 }
 
 #[derive(Debug, Default)]
 pub struct PgCoinGecko24HighLow {
     pub market_name: String,
-    pub high: Decimal,
-    pub low: Decimal,
-    pub close: Decimal,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
 }
