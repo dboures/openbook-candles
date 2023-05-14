@@ -11,6 +11,11 @@ use crate::utils::Config;
 
 pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool> {
     let mut x = PgConfig::new();
+
+    // TODO: fix
+    x.host = Some("".to_owned());
+    x.user = Some("".to_owned());
+    x.password = Some("".to_owned());
     x.dbname = Some("postgres".to_owned());
 
     x.manager = Some(ManagerConfig {
