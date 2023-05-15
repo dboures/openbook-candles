@@ -1,6 +1,6 @@
 use chrono::{DateTime, Duration, DurationRound, Utc};
-use sqlx::{pool::PoolConnection, Postgres};
-use std::cmp::{max, min};
+use deadpool_postgres::Pool;
+use std::cmp::max;
 
 use crate::{
     database::fetch::{fetch_candles_from, fetch_earliest_candles, fetch_latest_finished_candle},
@@ -8,21 +8,22 @@ use crate::{
         candle::Candle,
         resolution::{day, Resolution},
     },
+    utils::{f64_max, f64_min},
 };
 
 pub async fn batch_higher_order_candles(
-    conn: &mut PoolConnection<Postgres>,
+    pool: &Pool,
     market_name: &str,
     resolution: Resolution,
 ) -> anyhow::Result<Vec<Candle>> {
-    let latest_candle = fetch_latest_finished_candle(conn, market_name, resolution).await?;
+    let latest_candle = fetch_latest_finished_candle(pool, market_name, resolution).await?;
 
     match latest_candle {
         Some(candle) => {
             let start_time = candle.end_time;
             let end_time = start_time + day();
             let mut constituent_candles = fetch_candles_from(
-                conn,
+                pool,
                 market_name,
                 resolution.get_constituent_resolution(),
                 start_time,
@@ -42,7 +43,7 @@ pub async fn batch_higher_order_candles(
         }
         None => {
             let mut constituent_candles =
-                fetch_earliest_candles(conn, market_name, resolution.get_constituent_resolution())
+                fetch_earliest_candles(pool, market_name, resolution.get_constituent_resolution())
                     .await?;
             if constituent_candles.len() == 0 {
                 // println!(
@@ -112,8 +113,8 @@ fn combine_into_higher_order_candles(
 
         while matches!(con_iter.peek(), Some(c) if c.end_time <= end_time) {
             let unit_candle = con_iter.next().unwrap();
-            combined_candles[i].high = max(combined_candles[i].high, unit_candle.high);
-            combined_candles[i].low = min(combined_candles[i].low, unit_candle.low);
+            combined_candles[i].high = f64_max(combined_candles[i].high, unit_candle.high);
+            combined_candles[i].low = f64_min(combined_candles[i].low, unit_candle.low);
             combined_candles[i].close = unit_candle.close;
             combined_candles[i].volume += unit_candle.volume;
             combined_candles[i].complete = unit_candle.complete;

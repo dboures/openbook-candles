@@ -1,5 +1,5 @@
 use serde::Serialize;
-use sqlx::types::Decimal;
+use tokio_postgres::Row;
 
 use super::{markets::MarketInfo, openbook::token_factor};
 
@@ -35,8 +35,8 @@ pub struct CoinGeckoTicker {
 
 pub struct PgCoinGecko24HourVolume {
     pub address: String,
-    pub raw_base_size: Decimal,
-    pub raw_quote_size: Decimal,
+    pub raw_base_size: f64,
+    pub raw_quote_size: f64,
 }
 impl PgCoinGecko24HourVolume {
     pub fn convert_to_readable(&self, markets: &Vec<MarketInfo>) -> CoinGecko24HourVolume {
@@ -49,19 +49,38 @@ impl PgCoinGecko24HourVolume {
             target_volume,
         }
     }
+
+    pub fn from_row(row: Row) -> Self {
+        PgCoinGecko24HourVolume {
+            address: row.get(0),
+            raw_base_size: row.get(1),
+            raw_quote_size: row.get(2),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
 pub struct CoinGecko24HourVolume {
     pub market_name: String,
-    pub base_volume: Decimal,
-    pub target_volume: Decimal,
+    pub base_volume: f64,
+    pub target_volume: f64,
 }
 
 #[derive(Debug, Default)]
 pub struct PgCoinGecko24HighLow {
     pub market_name: String,
-    pub high: Decimal,
-    pub low: Decimal,
-    pub close: Decimal,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+}
+
+impl PgCoinGecko24HighLow {
+    pub fn from_row(row: Row) -> Self {
+        PgCoinGecko24HighLow {
+            market_name: row.get(0),
+            high: row.get(1),
+            low: row.get(2),
+            close: row.get(3),
+        }
+    }
 }

@@ -5,7 +5,6 @@ use futures::join;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use num_traits::ToPrimitive;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use sqlx::types::Decimal;
 use std::{
     convert::TryFrom,
     mem::{align_of, size_of},
@@ -102,19 +101,19 @@ impl LeafNode {
         NonZeroU64::new((self.key >> 64) as u64).unwrap()
     }
 
-    pub fn readable_price(&self, market: &MarketInfo) -> Decimal {
-        let price_lots = Decimal::from((self.key >> 64) as u64);
+    pub fn readable_price(&self, market: &MarketInfo) -> f64 {
+        let price_lots = (self.key >> 64) as f64;
         let base_multiplier = token_factor(market.base_decimals);
         let quote_multiplier = token_factor(market.quote_decimals);
-        let base_lot_size = Decimal::from(market.base_lot_size);
-        let quote_lot_size = Decimal::from(market.quote_lot_size);
+        let base_lot_size = market.base_lot_size as f64;
+        let quote_lot_size = market.quote_lot_size as f64;
         (price_lots * quote_lot_size * base_multiplier) / (base_lot_size * quote_multiplier)
     }
 
-    pub fn readable_quantity(&self, market: &MarketInfo) -> Decimal {
-        let base_lot_size = Decimal::from(market.base_lot_size);
+    pub fn readable_quantity(&self, market: &MarketInfo) -> f64 {
+        let base_lot_size = market.base_lot_size as f64;
         let base_multiplier = token_factor(market.base_decimals);
-        Decimal::from(self.quantity) * base_lot_size / base_multiplier
+        self.quantity as f64 * base_lot_size / base_multiplier
     }
 
     #[inline]
@@ -406,7 +405,7 @@ impl Slab {
         }
     }
 
-    pub fn get_best(&self, market: &MarketInfo, bid: bool) -> Decimal {
+    pub fn get_best(&self, market: &MarketInfo, bid: bool) -> f64 {
         let min = if bid {
             self.find_max()
         } else {
@@ -419,7 +418,7 @@ impl Slab {
 pub async fn get_best_bids_and_asks(
     client: RpcClient,
     markets: &Vec<MarketInfo>,
-) -> (Vec<Decimal>, Vec<Decimal>) {
+) -> (Vec<f64>, Vec<f64>) {
     let bid_keys = markets
         .iter()
         .map(|m| Pubkey::from_str(&m.bids_key).unwrap())

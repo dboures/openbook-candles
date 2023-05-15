@@ -1,6 +1,6 @@
 use chrono::{NaiveDateTime, Utc};
+use deadpool_postgres::Pool;
 use serde_derive::Deserialize;
-use sqlx::{Pool, Postgres};
 
 use crate::structs::markets::MarketInfo;
 
@@ -20,16 +20,35 @@ impl<T, E: std::fmt::Debug> AnyhowWrap for Result<T, E> {
 pub struct Config {
     pub rpc_url: String,
     pub database_url: String,
-    pub max_pg_pool_connections: u32,
+    pub max_pg_pool_connections: usize,
+    pub use_ssl: bool,
+    pub ca_cert_path: String,
+    pub client_key_path: String,
 }
 
 pub struct WebContext {
     pub rpc_url: String,
     pub markets: Vec<MarketInfo>,
-    pub pool: Pool<Postgres>,
+    pub pool: Pool,
 }
 
 #[allow(deprecated)]
 pub fn to_timestampz(seconds: u64) -> chrono::DateTime<Utc> {
     chrono::DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(seconds as i64, 0), Utc)
+}
+
+pub(crate) fn f64_max(a: f64, b: f64) -> f64 {
+    if a >= b {
+        a
+    } else {
+        b
+    }
+}
+
+pub(crate) fn f64_min(a: f64, b: f64) -> f64 {
+    if a < b {
+        a
+    } else {
+        b
+    }
 }

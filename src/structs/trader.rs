@@ -2,15 +2,24 @@ use std::fmt;
 
 use num_traits::ToPrimitive;
 use serde::Serialize;
-use sqlx::types::Decimal;
+use tokio_postgres::Row;
 
 use super::openbook::token_factor;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PgTrader {
     pub open_orders_owner: String,
-    pub raw_ask_size: Decimal,
-    pub raw_bid_size: Decimal,
+    pub raw_ask_size: f64,
+    pub raw_bid_size: f64,
+}
+impl PgTrader {
+    pub fn from_row(row: Row) -> Self {
+        PgTrader {
+            open_orders_owner: row.get(0),
+            raw_ask_size: row.get(1),
+            raw_bid_size: row.get(2),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
