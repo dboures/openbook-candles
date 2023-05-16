@@ -17,15 +17,20 @@ async fn main() -> anyhow::Result<()> {
     let path_to_markets_json = &args[1];
     let rpc_url: String = dotenv::var("RPC_URL").unwrap();
     let database_url: String = dotenv::var("DATABASE_URL").unwrap();
-    let max_pg_pool_connections: u32 = dotenv::var("MAX_PG_POOL_CONNS_WORKER")
+    let ca_cert_path: String = dotenv::var("CA_CERT_PATH").unwrap();
+    let client_key_path: String = dotenv::var("CLIENT_KEY_PATH").unwrap();
+    let max_pg_pool_connections: usize = dotenv::var("MAX_PG_POOL_CONNS_WORKER")
         .unwrap()
-        .parse::<u32>()
+        .parse::<usize>()
         .unwrap();
 
     let config = Config {
         rpc_url: rpc_url.clone(),
         database_url,
         max_pg_pool_connections,
+        use_ssl: true,
+        ca_cert_path,
+        client_key_path,
     };
     let markets = load_markets(&path_to_markets_json);
     let market_infos = fetch_market_infos(&config, markets.clone()).await?;
