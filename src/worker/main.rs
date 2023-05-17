@@ -16,7 +16,7 @@ use std::env;
 use std::{collections::HashMap, str::FromStr};
 use tokio::sync::mpsc;
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
@@ -24,22 +24,9 @@ async fn main() -> anyhow::Result<()> {
     assert!(args.len() == 2);
     let path_to_markets_json = &args[1];
     let rpc_url: String = dotenv::var("RPC_URL").unwrap();
-    let database_url: String = dotenv::var("DATABASE_URL").unwrap();
-    let use_ssl: bool = dotenv::var("USE_SSL").unwrap().parse::<bool>().unwrap();
-    let ca_cert_path: String = dotenv::var("CA_CERT_PATH").unwrap();
-    let client_key_path: String = dotenv::var("CLIENT_KEY_PATH").unwrap();
-    let max_pg_pool_connections: usize = dotenv::var("MAX_PG_POOL_CONNS_WORKER")
-        .unwrap()
-        .parse::<usize>()
-        .unwrap();
 
     let config = Config {
         rpc_url: rpc_url.clone(),
-        database_url,
-        max_pg_pool_connections,
-        use_ssl,
-        ca_cert_path,
-        client_key_path,
     };
 
     let markets = load_markets(&path_to_markets_json);
@@ -50,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
     }
     println!("{:?}", target_markets);
 
-    let pool = connect_to_database(&config).await?;
+    let pool = connect_to_database().await?;
     setup_database(&pool).await?;
     let mut handles = vec![];
 

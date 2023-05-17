@@ -16,14 +16,27 @@ impl<T, E: std::fmt::Debug> AnyhowWrap for Result<T, E> {
     }
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct PgConfig {
+    pub pg: deadpool_postgres::Config,
+    pub pg_max_pool_connections: usize,
+    pub pg_use_ssl: bool,
+    pub pg_ca_cert_path: Option<String>,
+    pub pg_client_key_path: Option<String>,
+}
+
+impl PgConfig {
+    pub fn from_env() -> Result<Self, config::ConfigError> {
+        config::Config::builder()
+            .add_source(config::Environment::default().separator("_"))
+            .build()?
+            .try_deserialize()
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub rpc_url: String,
-    pub database_url: String,
-    pub max_pg_pool_connections: usize,
-    pub use_ssl: bool,
-    pub ca_cert_path: String,
-    pub client_key_path: String,
 }
 
 pub struct WebContext {

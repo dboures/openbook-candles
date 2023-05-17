@@ -1,0 +1,19 @@
+app = "openbook-candles"
+kill_signal = "SIGTERM"
+kill_timeout = 30
+
+[build]
+  dockerfile = "../Dockerfile.server"
+
+[experimental]
+  cmd = ["server", "markets.json"]
+
+[[services]]
+  internal_port = 8080
+  processes = ["app"]
+  protocol = "tcp"
+
+  [services.concurrency]
+    hard_limit = 1024
+    soft_limit = 1024
+    type = "connections"

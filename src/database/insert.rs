@@ -57,7 +57,6 @@ pub async fn persist_fill_events(
             // }
         }
     }
-    Ok(())
 }
 
 pub async fn persist_candles(
@@ -93,7 +92,6 @@ pub async fn persist_candles(
         // }
         // };
     }
-    Ok(())
 }
 
 fn build_fills_upsert_statement(events: HashMap<OpenBookFillEventLog, u8>) -> String {

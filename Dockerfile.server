@@ -19,4 +19,6 @@ RUN apt-get update && apt-get -y install ca-certificates libssl1.1
 # We do not need the Rust toolchain to run the binary!
 FROM base_image AS runtime
 COPY --from=builder /target/release/server /usr/local/bin
-ENTRYPOINT ["/usr/local/bin/server"]
+COPY --from=builder markets.json .
+COPY --from=builder ca.cer .
+COPY --from=builder client.pks .
