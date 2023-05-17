@@ -1,5 +1,5 @@
 use chrono::Utc;
-use sqlx::{Connection, Pool, Postgres};
+use deadpool_postgres::Pool;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
@@ -12,10 +12,10 @@ use crate::{
 };
 
 pub async fn persist_fill_events(
-    pool: &Pool<Postgres>,
+    pool: &Pool,
     fill_receiver: &mut Receiver<OpenBookFillEventLog>,
 ) -> anyhow::Result<()> {
-    let mut conn = pool.acquire().await.unwrap();
+    let client = pool.get().await?;
     loop {
         let mut write_batch = HashMap::new();
         while write_batch.len() < 10 {
@@ -41,57 +41,57 @@ pub async fn persist_fill_events(
         if write_batch.len() > 0 {
             // print!("writing: {:?} events to DB\n", write_batch.len());
 
-            match conn.ping().await {
-                Ok(_) => {
-                    let upsert_statement = build_fills_upsert_statement(write_batch);
-                    sqlx::query(&upsert_statement)
-                        .execute(&mut conn)
-                        .await
-                        .map_err_anyhow()
-                        .unwrap();
-                }
-                Err(_) => {
-                    println!("Fills ping failed");
-                    break;
-                }
-            }
+            // match conn.ping().await {
+            //     Ok(_) => {
+            let upsert_statement = build_fills_upsert_statement(write_batch);
+            client
+                .execute(&upsert_statement, &[])
+                .await
+                .map_err_anyhow()
+                .unwrap();
+            //     }
+            //     Err(_) => {
+            //         println!("Fills ping failed");
+            //         break;
+            //     }
+            // }
         }
     }
     Ok(())
 }
 
 pub async fn persist_candles(
-    pool: Pool<Postgres>,
+    pool: Pool,
     candles_receiver: &mut Receiver<Vec<Candle>>,
 ) -> anyhow::Result<()> {
-    let mut conn = pool.acquire().await.unwrap();
+    let client = pool.get().await.unwrap();
     loop {
-        match conn.ping().await {
-            Ok(_) => {
-                match candles_receiver.try_recv() {
-                    Ok(candles) => {
-                        if candles.len() == 0 {
-                            continue;
-                        }
-                        // print!("writing: {:?} candles to DB\n", candles.len());
-                        let upsert_statement = build_candes_upsert_statement(candles);
-                        sqlx::query(&upsert_statement)
-                            .execute(&mut conn)
-                            .await
-                            .map_err_anyhow()
-                            .unwrap();
-                    }
-                    Err(TryRecvError::Empty) => continue,
-                    Err(TryRecvError::Disconnected) => {
-                        panic!("Candles sender must stay alive")
-                    }
-                };
+        // match client.ping().await {
+        //     Ok(_) => {
+        match candles_receiver.try_recv() {
+            Ok(candles) => {
+                if candles.len() == 0 {
+                    continue;
+                }
+                // print!("writing: {:?} candles to DB\n", candles.len());
+                let upsert_statement = build_candes_upsert_statement(candles);
+                client
+                    .execute(&upsert_statement, &[])
+                    .await
+                    .map_err_anyhow()
+                    .unwrap();
             }
-            Err(_) => {
-                println!("Candle ping failed");
-                break;
+            Err(TryRecvError::Empty) => continue,
+            Err(TryRecvError::Disconnected) => {
+                panic!("Candles sender must stay alive")
             }
         };
+        // }
+        // Err(_) => {
+        //     println!("Candle ping failed");
+        //     break;
+        // }
+        // };
     }
     Ok(())
 }

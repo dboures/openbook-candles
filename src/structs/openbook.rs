@@ -1,8 +1,8 @@
 use anchor_lang::{event, AnchorDeserialize, AnchorSerialize};
 use chrono::{DateTime, Utc};
-use num_traits::FromPrimitive;
+use num_traits::Pow;
 use solana_sdk::pubkey::Pubkey;
-use sqlx::types::Decimal;
+use tokio_postgres::Row;
 
 #[event]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27,9 +27,21 @@ pub struct PgOpenBookFill {
     pub time: DateTime<Utc>,
     pub bid: bool,
     pub maker: bool,
-    pub native_qty_paid: Decimal,
-    pub native_qty_received: Decimal,
-    pub native_fee_or_rebate: Decimal,
+    pub native_qty_paid: f64,
+    pub native_qty_received: f64,
+    pub native_fee_or_rebate: f64,
+}
+impl PgOpenBookFill {
+    pub fn from_row(row: Row) -> Self {
+        PgOpenBookFill {
+            time: row.get(0),
+            bid: row.get(1),
+            maker: row.get(2),
+            native_qty_paid: row.get(3),
+            native_qty_received: row.get(4),
+            native_fee_or_rebate: row.get(5),
+        }
+    }
 }
 
 #[derive(Copy, Clone, AnchorDeserialize)]
@@ -91,7 +103,7 @@ pub fn calculate_fill_price_and_size(
     fill: PgOpenBookFill,
     base_decimals: u8,
     quote_decimals: u8,
-) -> (Decimal, Decimal) {
+) -> (f64, f64) {
     if fill.bid {
         let price_before_fees = if fill.maker {
             fill.native_qty_paid + fill.native_fee_or_rebate
@@ -115,6 +127,6 @@ pub fn calculate_fill_price_and_size(
     }
 }
 
-pub fn token_factor(decimals: u8) -> Decimal {
-    Decimal::from_u64(10u64.pow(decimals as u32)).unwrap()
+pub fn token_factor(decimals: u8) -> f64 {
+    10f64.pow(decimals as f64)
 }

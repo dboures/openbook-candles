@@ -1,5 +1,5 @@
 use openbook_candles::{
-    database::fetch::fetch_tradingview_candles,
+    database::fetch::fetch_candles_from,
     structs::{markets::valid_market, resolution::Resolution, tradingview::TvResponse},
     utils::{to_timestampz, WebContext},
 };
@@ -34,9 +34,8 @@ pub async fn get_candles(
     let from = to_timestampz(info.from);
     let to = to_timestampz(info.to);
 
-    let mut conn = context.pool.acquire().await.unwrap();
     let candles =
-        match fetch_tradingview_candles(&mut conn, &info.market_name, resolution, from, to).await {
+        match fetch_candles_from(&context.pool, &info.market_name, resolution, from, to).await {
             Ok(c) => c,
             Err(_) => return Err(ServerError::DbQueryError),
         };

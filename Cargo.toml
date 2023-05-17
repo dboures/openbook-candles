@@ -26,7 +26,10 @@ futures = "0.3.27"
 
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
-sqlx = { version = "0.6", features = [ "runtime-tokio-native-tls" , "postgres", "chrono", "decimal", "offline" ] }
+deadpool-postgres = { version = "0.10.5", features = [ "rt_tokio_1" ] }
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
+postgres-native-tls = "0.5.0"
+native-tls = "0.2.11"
 chrono = "0.4.23"
 
 solana-client = "=1.14.13"
