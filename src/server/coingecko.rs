@@ -10,7 +10,7 @@ use openbook_candles::{
             CoinGecko24HourVolume, CoinGeckoOrderBook, CoinGeckoPair, CoinGeckoTicker,
             PgCoinGecko24HighLow,
         },
-        slab::{get_best_bids_and_asks, get_orderbooks_with_depth},
+        slab::get_orderbooks_with_depth,
     },
     utils::WebContext,
 };

@@ -1,31 +1,35 @@
-use std::{collections::HashMap, str::FromStr, env};
 use anchor_lang::prelude::Pubkey;
-use chrono::{NaiveDateTime, DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use futures::future::join_all;
-use openbook_candles::{structs::{openbook::OpenBookFillEventLog, markets::{load_markets, fetch_market_infos}}, worker::trade_fetching::{scrape::scrape_transactions, parsing::parse_trades_from_openbook_txns}, database::{initialize::connect_to_database, insert::persist_fill_events}, utils::Config};
-use solana_client::{rpc_config::RpcTransactionConfig, nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config, rpc_response::RpcConfirmedTransactionStatusWithSignature};
+use openbook_candles::{
+    database::{initialize::connect_to_database, insert::persist_fill_events},
+    structs::{
+        markets::{fetch_market_infos, load_markets},
+        openbook::OpenBookFillEventLog,
+    },
+    utils::Config,
+    worker::trade_fetching::parsing::parse_trades_from_openbook_txns,
+};
+use solana_client::{
+    nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
+    rpc_config::RpcTransactionConfig, rpc_response::RpcConfirmedTransactionStatusWithSignature,
+};
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Signature};
 use solana_transaction_status::UiTransactionEncoding;
-use tokio::sync::mpsc::{Sender, self};
+use std::{collections::HashMap, env, str::FromStr};
+use tokio::sync::mpsc::{self, Sender};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {    
+async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
     let args: Vec<String> = env::args().collect();
     assert!(args.len() == 2);
-    
+
     let path_to_markets_json = &args[1];
     let rpc_url: String = dotenv::var("RPC_URL").unwrap();
-    let database_url: String = dotenv::var("DATABASE_URL").unwrap();
-    let max_pg_pool_connections: u32 = dotenv::var("MAX_PG_POOL_CONNS_WORKER")
-        .unwrap()
-        .parse::<u32>()
-        .unwrap();
 
     let config = Config {
         rpc_url: rpc_url.clone(),
-        database_url,
-        max_pg_pool_connections,
     };
     let markets = load_markets(&path_to_markets_json);
     let market_infos = fetch_market_infos(&config, markets.clone()).await?;
@@ -35,10 +39,10 @@ async fn main() -> anyhow::Result<()> {
     }
     println!("{:?}", target_markets);
 
-    let pool = connect_to_database(&config).await?;
+    let pool = connect_to_database().await?;
     let (fill_sender, mut fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
 
-   tokio::spawn(async move {
+    tokio::spawn(async move {
         loop {
             persist_fill_events(&pool, &mut fill_receiver)
                 .await
@@ -55,7 +59,6 @@ pub async fn backfill(
     fill_sender: &Sender<OpenBookFillEventLog>,
     target_markets: &HashMap<Pubkey, u8>,
 ) -> anyhow::Result<()> {
-
     println!("backfill started");
     let mut before_sig: Option<Signature> = None;
     let mut now_time = Utc::now().timestamp();
@@ -64,7 +67,8 @@ pub async fn backfill(
     let mut handles = vec![];
 
     while now_time > end_time {
-        let rpc_client = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
+        let rpc_client =
+            RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
         let maybe_r = get_signatures(&rpc_client, before_sig).await;
 
         match maybe_r {
@@ -85,10 +89,10 @@ pub async fn backfill(
                     get_transactions(&rpc_client, sigs, &cloned_sender, &cloned_markets).await;
                 });
                 handles.push(handle);
-            },
-            None => {},
+            }
+            None => {}
         }
-    };
+    }
 
     futures::future::join_all(handles).await;
 
@@ -96,39 +100,46 @@ pub async fn backfill(
     Ok(())
 }
 
+pub async fn get_signatures(
+    rpc_client: &RpcClient,
+    before_sig: Option<Signature>,
+) -> Option<(
+    Signature,
+    i64,
+    Vec<RpcConfirmedTransactionStatusWithSignature>,
+)> {
+    let rpc_config = GetConfirmedSignaturesForAddress2Config {
+        before: before_sig,
+        until: None,
+        limit: None,
+        commitment: Some(CommitmentConfig::confirmed()),
+    };
 
-pub async fn get_signatures(rpc_client: &RpcClient,
-    before_sig: Option<Signature>) -> Option<(Signature, i64, Vec<RpcConfirmedTransactionStatusWithSignature>)> {
-        let rpc_config = GetConfirmedSignaturesForAddress2Config {
-            before: before_sig,
-            until: None,
-            limit: None,
-            commitment: Some(CommitmentConfig::confirmed()),
-        };
-    
-        let sigs = match rpc_client
-            .get_signatures_for_address_with_config(
-                &Pubkey::from_str("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX").unwrap(),
-                rpc_config,
-            )
-            .await
-        {
-            Ok(s) => s,
-            Err(e) => {
-                println!("Error in get_signatures_for_address_with_config: {}", e);
-                return None;
-            }
-        };
-    
-        if sigs.len() == 0 {
-            println!("No signatures found");
+    let sigs = match rpc_client
+        .get_signatures_for_address_with_config(
+            &Pubkey::from_str("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX").unwrap(),
+            rpc_config,
+        )
+        .await
+    {
+        Ok(s) => s,
+        Err(e) => {
+            println!("Error in get_signatures_for_address_with_config: {}", e);
             return None;
         }
-        let last = sigs.last().unwrap();
-        return Some((Signature::from_str(&last.signature).unwrap(), last.block_time.unwrap(), sigs));
+    };
+
+    if sigs.len() == 0 {
+        println!("No signatures found");
+        return None;
     }
-
-
+    let last = sigs.last().unwrap();
+    return Some((
+        Signature::from_str(&last.signature).unwrap(),
+        last.block_time.unwrap(),
+        sigs,
+    ));
+}
 
 pub async fn get_transactions(
     rpc_client: &RpcClient,

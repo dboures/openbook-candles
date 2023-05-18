@@ -1,28 +1,21 @@
 use std::{fs, time::Duration};
 
 use deadpool_postgres::{
-    Config as PgConfig, ManagerConfig, Pool, PoolConfig, RecyclingMethod, Runtime, SslMode,
-    Timeouts,
+    ManagerConfig, Pool, PoolConfig, RecyclingMethod, Runtime, SslMode, Timeouts,
 };
 use native_tls::{Certificate, Identity, TlsConnector};
 use postgres_native_tls::MakeTlsConnector;
 
-use crate::utils::Config;
+use crate::utils::PgConfig;
 
-pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool> {
-    let mut x = PgConfig::new();
+pub async fn connect_to_database() -> anyhow::Result<Pool> {
+    let mut pg_config = PgConfig::from_env()?;
 
-    // TODO: fix
-    x.host = Some("".to_owned());
-    x.user = Some("".to_owned());
-    x.password = Some("".to_owned());
-    x.dbname = Some("postgres".to_owned());
-
-    x.manager = Some(ManagerConfig {
+    pg_config.pg.manager = Some(ManagerConfig {
         recycling_method: RecyclingMethod::Fast,
     });
-    x.pool = Some(PoolConfig {
-        max_size: config.max_pg_pool_connections,
+    pg_config.pg.pool = Some(PoolConfig {
+        max_size: pg_config.pg_max_pool_connections,
         timeouts: Timeouts::default(),
     });
 
@@ -30,10 +23,16 @@ pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool> {
     // base64 -i ca.cer -o ca.cer.b64 && base64 -i client.pks -o client.pks.b64
     // fly secrets set PG_CA_CERT=- < ./ca.cer.b64 -a mango-fills
     // fly secrets set PG_CLIENT_KEY=- < ./client.pks.b64 -a mango-fills
-    let tls = if config.use_ssl {
-        x.ssl_mode = Some(SslMode::Require);
-        let ca_cert = fs::read(&config.ca_cert_path).expect("reading client cert from file");
-        let client_key = fs::read(&config.client_key_path).expect("reading client key from file");
+    let tls = if pg_config.pg_use_ssl {
+        pg_config.pg.ssl_mode = Some(SslMode::Require);
+        let ca_cert = fs::read(&pg_config.pg_ca_cert_path.expect("reading ca cert from env"))
+            .expect("reading ca cert from file");
+        let client_key = fs::read(
+            &pg_config
+                .pg_client_key_path
+                .expect("reading client key from env"),
+        )
+        .expect("reading client key from file");
         MakeTlsConnector::new(
             TlsConnector::builder()
                 .add_root_certificate(Certificate::from_pem(&ca_cert)?)
@@ -50,7 +49,10 @@ pub async fn connect_to_database(config: &Config) -> anyhow::Result<Pool> {
         )
     };
 
-    let pool = x.create_pool(Some(Runtime::Tokio1), tls).unwrap();
+    let pool = pg_config
+        .pg
+        .create_pool(Some(Runtime::Tokio1), tls)
+        .unwrap();
     match pool.get().await {
         Ok(_) => println!("Database connected"),
         Err(e) => {
