@@ -1,4 +1,4 @@
-app = "openbook-candles"
+app = "openbook-candles-server"
 kill_signal = "SIGTERM"
 kill_timeout = 30
 
