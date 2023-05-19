@@ -1,7 +1,7 @@
 use dotenv;
 use openbook_candles::structs::candle::Candle;
 use openbook_candles::structs::markets::{fetch_market_infos, load_markets};
-use openbook_candles::structs::openbook::OpenBookFillEventLog;
+use openbook_candles::structs::openbook::OpenBookFillEvent;
 use openbook_candles::utils::Config;
 use openbook_candles::worker::trade_fetching::scrape::scrape;
 use openbook_candles::{
@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     setup_database(&pool).await?;
     let mut handles = vec![];
 
-    let (fill_sender, mut fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
+    let (fill_sender, mut fill_receiver) = mpsc::channel::<OpenBookFillEvent>(1000);
 
     handles.push(tokio::spawn(async move {
         scrape(&config, &fill_sender, &target_markets).await;

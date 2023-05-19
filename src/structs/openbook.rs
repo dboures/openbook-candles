@@ -6,7 +6,7 @@ use tokio_postgres::Row;
 
 #[event]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct OpenBookFillEventLog {
+pub struct OpenBookFillEventRaw {
     pub market: Pubkey,
     pub open_orders: Pubkey,
     pub open_orders_owner: Pubkey,
@@ -20,6 +20,45 @@ pub struct OpenBookFillEventLog {
     pub fee_tier: u8,
     pub client_order_id: Option<u64>,
     pub referrer_rebate: Option<u64>,
+}
+impl OpenBookFillEventRaw {
+    pub fn with_time(self, block_time: i64) -> OpenBookFillEvent {
+        OpenBookFillEvent {
+            market: self.market,
+            open_orders: self.open_orders,
+            open_orders_owner: self.open_orders_owner,
+            bid: self.bid,
+            maker: self.maker,
+            native_qty_paid: self.native_qty_paid,
+            native_qty_received: self.native_qty_received,
+            native_fee_or_rebate: self.native_fee_or_rebate,
+            order_id: self.order_id,
+            owner_slot: self.owner_slot,
+            fee_tier: self.fee_tier,
+            client_order_id: self.client_order_id,
+            referrer_rebate: self.referrer_rebate,
+            block_time,
+        }
+    }
+}
+
+#[event]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OpenBookFillEvent {
+    pub market: Pubkey,
+    pub open_orders: Pubkey,
+    pub open_orders_owner: Pubkey,
+    pub bid: bool,
+    pub maker: bool,
+    pub native_qty_paid: u64,
+    pub native_qty_received: u64,
+    pub native_fee_or_rebate: u64,
+    pub order_id: u128,
+    pub owner_slot: u8,
+    pub fee_tier: u8,
+    pub client_order_id: Option<u64>,
+    pub referrer_rebate: Option<u64>,
+    pub block_time: i64,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

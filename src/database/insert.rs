@@ -1,4 +1,3 @@
-use chrono::Utc;
 use deadpool_postgres::Pool;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
@@ -7,13 +6,13 @@ use std::{
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 use crate::{
-    structs::{candle::Candle, openbook::OpenBookFillEventLog},
-    utils::AnyhowWrap,
+    structs::{candle::Candle, openbook::OpenBookFillEvent},
+    utils::{to_timestampz, AnyhowWrap},
 };
 
 pub async fn persist_fill_events(
     pool: &Pool,
-    fill_receiver: &mut Receiver<OpenBookFillEventLog>,
+    fill_receiver: &mut Receiver<OpenBookFillEvent>,
 ) -> anyhow::Result<()> {
     let client = pool.get().await?;
     loop {
@@ -94,7 +93,8 @@ pub async fn persist_candles(
     }
 }
 
-fn build_fills_upsert_statement(events: HashMap<OpenBookFillEventLog, u8>) -> String {
+#[allow(deprecated)]
+fn build_fills_upsert_statement(events: HashMap<OpenBookFillEvent, u8>) -> String {
     let mut stmt = String::from("INSERT INTO fills (id, time, market, open_orders, open_orders_owner, bid, maker, native_qty_paid, native_qty_received, native_fee_or_rebate, fee_tier, order_id) VALUES");
     for (idx, event) in events.keys().enumerate() {
         let mut hasher = DefaultHasher::new();
@@ -102,7 +102,7 @@ fn build_fills_upsert_statement(events: HashMap<OpenBookFillEventLog, u8>) -> St
         let val_str = format!(
             "({}, \'{}\', \'{}\', \'{}\', \'{}\', {}, {}, {}, {}, {}, {}, {})",
             hasher.finish(),
-            Utc::now().to_rfc3339(),
+            to_timestampz(event.block_time as u64).to_rfc3339(),
             event.market,
             event.open_orders,
             event.open_orders_owner,
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_event_hashing() {
-        let event_1 = OpenBookFillEventLog {
+        let event_1 = OpenBookFillEvent {
             market: Pubkey::from_str("8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6").unwrap(),
             open_orders: Pubkey::from_str("CKo9nGfgekYYfjHw4K22qMAtVeqBXET3pSGm8k5DSJi7").unwrap(),
             open_orders_owner: Pubkey::from_str("JCNCMFXo5M5qwUPg2Utu1u6YWp3MbygxqBsBeXXJfrw")
@@ -189,9 +189,10 @@ mod tests {
             fee_tier: 0,
             client_order_id: None,
             referrer_rebate: Some(841),
+            block_time: 0,
         };
 
-        let event_2 = OpenBookFillEventLog {
+        let event_2 = OpenBookFillEvent {
             market: Pubkey::from_str("8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6").unwrap(),
             open_orders: Pubkey::from_str("CKo9nGfgekYYfjHw4K22qMAtVeqBXET3pSGm8k5DSJi7").unwrap(),
             open_orders_owner: Pubkey::from_str("JCNCMFXo5M5qwUPg2Utu1u6YWp3MbygxqBsBeXXJfrw")
@@ -206,6 +207,7 @@ mod tests {
             fee_tier: 0,
             client_order_id: None,
             referrer_rebate: Some(841),
+            block_time: 0,
         };
 
         let mut h1 = DefaultHasher::new();

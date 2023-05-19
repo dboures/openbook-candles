@@ -5,22 +5,26 @@ use solana_transaction_status::{
 };
 use std::{collections::HashMap, io::Error};
 
-use crate::structs::openbook::OpenBookFillEventLog;
+use crate::structs::openbook::{OpenBookFillEvent, OpenBookFillEventRaw};
 
 const PROGRAM_DATA: &str = "Program data: ";
 
 pub fn parse_trades_from_openbook_txns(
     txns: &mut Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>,
     target_markets: &HashMap<Pubkey, u8>,
-) -> Vec<OpenBookFillEventLog> {
-    let mut fills_vector = Vec::<OpenBookFillEventLog>::new();
+) -> Vec<OpenBookFillEvent> {
+    let mut fills_vector = Vec::<OpenBookFillEvent>::new();
     for txn in txns.iter_mut() {
         match txn {
             Ok(t) => {
                 if let Some(m) = &t.transaction.meta {
                     match &m.log_messages {
                         OptionSerializer::Some(logs) => {
-                            match parse_openbook_fills_from_logs(logs, target_markets) {
+                            match parse_openbook_fills_from_logs(
+                                logs,
+                                target_markets,
+                                t.block_time.unwrap(),
+                            ) {
                                 Some(mut events) => fills_vector.append(&mut events),
                                 None => {}
                             }
@@ -39,8 +43,9 @@ pub fn parse_trades_from_openbook_txns(
 fn parse_openbook_fills_from_logs(
     logs: &Vec<String>,
     target_markets: &HashMap<Pubkey, u8>,
-) -> Option<Vec<OpenBookFillEventLog>> {
-    let mut fills_vector = Vec::<OpenBookFillEventLog>::new();
+    block_time: i64,
+) -> Option<Vec<OpenBookFillEvent>> {
+    let mut fills_vector = Vec::<OpenBookFillEvent>::new();
     for l in logs {
         match l.strip_prefix(PROGRAM_DATA) {
             Some(log) => {
@@ -49,13 +54,14 @@ fn parse_openbook_fills_from_logs(
                     _ => continue,
                 };
                 let mut slice: &[u8] = &borsh_bytes[8..];
-                let event: Result<OpenBookFillEventLog, Error> =
+                let event: Result<OpenBookFillEventRaw, Error> =
                     anchor_lang::AnchorDeserialize::deserialize(&mut slice);
 
                 match event {
                     Ok(e) => {
-                        if target_markets.contains_key(&e.market) {
-                            fills_vector.push(e);
+                        let fill_event = e.with_time(block_time);
+                        if target_markets.contains_key(&fill_event.market) {
+                            fills_vector.push(fill_event);
                         }
                     }
                     _ => continue,

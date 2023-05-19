@@ -8,13 +8,13 @@ use solana_transaction_status::UiTransactionEncoding;
 use std::{collections::HashMap, str::FromStr, time::Duration as WaitDuration};
 use tokio::sync::mpsc::Sender;
 
-use crate::{structs::openbook::OpenBookFillEventLog, utils::Config};
+use crate::{structs::openbook::OpenBookFillEvent, utils::Config};
 
 use super::parsing::parse_trades_from_openbook_txns;
 
 pub async fn scrape(
     config: &Config,
-    fill_sender: &Sender<OpenBookFillEventLog>,
+    fill_sender: &Sender<OpenBookFillEvent>,
     target_markets: &HashMap<Pubkey, u8>,
 ) {
     let rpc_client =
@@ -38,7 +38,7 @@ pub async fn scrape_transactions(
     rpc_client: &RpcClient,
     before_sig: Option<Signature>,
     limit: Option<usize>,
-    fill_sender: &Sender<OpenBookFillEventLog>,
+    fill_sender: &Sender<OpenBookFillEvent>,
     target_markets: &HashMap<Pubkey, u8>,
 ) -> Option<Signature> {
     let rpc_config = GetConfirmedSignaturesForAddress2Config {
