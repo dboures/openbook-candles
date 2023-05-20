@@ -24,16 +24,8 @@
         "address": "9Lyhks5bQQxb9EyyX55NtgKQzpM4WK7JCmeaWuQ5MoXD"
     },
     {
-        "name": "stSOL/USDC",
-        "address": "JCKa72xFYGWBEVJZ7AKZ2ofugWPBfrrouQviaGaohi3R"
-    },
-    {
         "name": "SOL/USDT",
         "address": "2AdaV97p6SfkuMQJdu8DHhBhmJe7oWdvbm52MJfYQmfA"
-    },
-    {
-        "name": "USDT/USDC",
-        "address": "B2na8Awyd7cpC59iEU43FagJAPLigr3AP3s38KM982bu"
     },
     {
         "name": "USDT/USDC",
@@ -50,9 +42,5 @@
     {
         "name": "RAY/USDT",
         "address": "GpHbiJJ9VHiuHVXeoet121Utrbm1CSNNzYrBKB8Xz2oz"
-    },
-    {
-        "name": "SLND/USDC",
-        "address": "HTHMfoxePjcXFhrV74pfCUNoWGe374ecFwiDjPGTkzHr"
     }
 ]
