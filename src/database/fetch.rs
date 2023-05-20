@@ -111,6 +111,8 @@ pub async fn fetch_latest_finished_candle(
     }
 }
 
+/// Fetches all of the candles for the given market and resoultion, starting from the earliest.
+/// Note that this function will fetch ALL candles.
 pub async fn fetch_earliest_candles(
     pool: &Pool,
     market_name: &str,

@@ -120,3 +120,38 @@ fn combine_fills_into_1m_candles(
 
     candles
 }
+
+/// Goes from the earliest fill to the most recent. Will mark candles as complete if there are missing gaps of fills between the start and end.
+pub async fn backfill_batch_1m_candles(
+    pool: &Pool,
+    market: &MarketInfo,
+) -> anyhow::Result<Vec<Candle>> {
+    let market_name = &market.name;
+    let market_address = &market.address;
+    let mut candles = vec![];
+
+    let earliest_fill = fetch_earliest_fill(pool, &market.address).await?;
+    if earliest_fill.is_none() {
+        println!("No fills found for: {:?}", &market_name);
+        return Ok(candles);
+    }
+
+    let mut start_time = earliest_fill
+        .unwrap()
+        .time
+        .duration_trunc(Duration::minutes(1))?;
+    while start_time < Utc::now() {
+        let end_time = min(
+            start_time + day(),
+            Utc::now().duration_trunc(Duration::minutes(1))?,
+        );
+        let mut fills = fetch_fills_from(pool, market_address, start_time, end_time).await?;
+        if fills.len() > 0 {
+            let mut minute_candles =
+                combine_fills_into_1m_candles(&mut fills, market, start_time, end_time, None);
+            candles.append(&mut minute_candles);
+        }
+        start_time += day()
+    }
+    Ok(candles)
+}

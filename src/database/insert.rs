@@ -72,7 +72,7 @@ pub async fn persist_candles(
                     continue;
                 }
                 // print!("writing: {:?} candles to DB\n", candles.len());
-                let upsert_statement = build_candes_upsert_statement(candles);
+                let upsert_statement = build_candles_upsert_statement(candles);
                 client
                     .execute(&upsert_statement, &[])
                     .await
@@ -128,7 +128,7 @@ fn build_fills_upsert_statement(events: HashMap<OpenBookFillEvent, u8>) -> Strin
     stmt
 }
 
-fn build_candes_upsert_statement(candles: Vec<Candle>) -> String {
+pub fn build_candles_upsert_statement(candles: Vec<Candle>) -> String {
     let mut stmt = String::from("INSERT INTO candles (market_name, start_time, end_time, resolution, open, close, high, low, volume, complete) VALUES");
     for (idx, candle) in candles.iter().enumerate() {
         let val_str = format!(

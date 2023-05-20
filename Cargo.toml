@@ -16,8 +16,12 @@ name = "server"
 path = "src/server/main.rs"
 
 [[bin]]
-name = "backfill"
-path = "src/backfill/main.rs"
+name = "backfill-trades"
+path = "src/backfill-trades/main.rs"
+
+[[bin]]
+name = "backfill-candles"
+path = "src/backfill-candles/main.rs"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }

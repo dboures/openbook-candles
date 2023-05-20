@@ -5,7 +5,7 @@ use openbook_candles::{
     database::{initialize::connect_to_database, insert::persist_fill_events},
     structs::{
         markets::{fetch_market_infos, load_markets},
-        openbook::OpenBookFillEventLog,
+        openbook::OpenBookFillEvent,
     },
     utils::Config,
     worker::trade_fetching::parsing::parse_trades_from_openbook_txns,
@@ -19,7 +19,7 @@ use solana_transaction_status::UiTransactionEncoding;
 use std::{collections::HashMap, env, str::FromStr};
 use tokio::sync::mpsc::{self, Sender};
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
     let args: Vec<String> = env::args().collect();
@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
     println!("{:?}", target_markets);
 
     let pool = connect_to_database().await?;
-    let (fill_sender, mut fill_receiver) = mpsc::channel::<OpenBookFillEventLog>(1000);
+    let (fill_sender, mut fill_receiver) = mpsc::channel::<OpenBookFillEvent>(1000);
 
     tokio::spawn(async move {
         loop {
@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
 
 pub async fn backfill(
     rpc_url: String,
-    fill_sender: &Sender<OpenBookFillEventLog>,
+    fill_sender: &Sender<OpenBookFillEvent>,
     target_markets: &HashMap<Pubkey, u8>,
 ) -> anyhow::Result<()> {
     println!("backfill started");
@@ -75,7 +75,6 @@ pub async fn backfill(
             Some((last, time, sigs)) => {
                 now_time = time;
                 before_sig = Some(last);
-
                 let time_left = backfill_time_left(now_time, end_time);
                 println!(
                     "{} minutes ~ {} days remaining in the backfill\n",
@@ -134,6 +133,7 @@ pub async fn get_signatures(
         return None;
     }
     let last = sigs.last().unwrap();
+    // println!("{:?}", last.block_time.unwrap());
     return Some((
         Signature::from_str(&last.signature).unwrap(),
         last.block_time.unwrap(),
@@ -144,7 +144,7 @@ pub async fn get_signatures(
 pub async fn get_transactions(
     rpc_client: &RpcClient,
     mut sigs: Vec<RpcConfirmedTransactionStatusWithSignature>,
-    fill_sender: &Sender<OpenBookFillEventLog>,
+    fill_sender: &Sender<OpenBookFillEvent>,
     target_markets: &HashMap<Pubkey, u8>,
 ) {
     sigs.retain(|sig| sig.err.is_none());
@@ -173,6 +173,7 @@ pub async fn get_transactions(
     let fills = parse_trades_from_openbook_txns(&mut txns, target_markets);
     if fills.len() > 0 {
         for fill in fills.into_iter() {
+            // println!("Sending fill {:?}", fill);
             if let Err(_) = fill_sender.send(fill).await {
                 panic!("receiver dropped");
             }

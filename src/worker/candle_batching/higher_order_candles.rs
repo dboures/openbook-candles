@@ -144,3 +144,29 @@ fn trim_candles(mut c: Vec<Candle>, start_time: DateTime<Utc>) -> Vec<Candle> {
     }
     c
 }
+
+pub async fn backfill_batch_higher_order_candles(
+    pool: &Pool,
+    market_name: &str,
+    resolution: Resolution,
+) -> anyhow::Result<Vec<Candle>> {
+    let mut constituent_candles =
+        fetch_earliest_candles(pool, market_name, resolution.get_constituent_resolution()).await?;
+    if constituent_candles.len() == 0 {
+        return Ok(vec![]);
+    }
+    let start_time = constituent_candles[0].start_time.duration_trunc(day())?;
+
+    let seed_candle = constituent_candles[0].clone();
+    let combined_candles = combine_into_higher_order_candles(
+        &mut constituent_candles,
+        resolution,
+        start_time,
+        seed_candle,
+    );
+
+    Ok(trim_candles(
+        combined_candles,
+        constituent_candles[0].start_time,
+    ))
+}
