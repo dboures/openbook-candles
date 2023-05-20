@@ -30,7 +30,7 @@ pub async fn batch_higher_order_candles(
                 end_time,
             )
             .await?;
-            if constituent_candles.len() == 0 {
+            if constituent_candles.is_empty() {
                 return Ok(Vec::new());
             }
             let combined_candles = combine_into_higher_order_candles(
@@ -45,7 +45,7 @@ pub async fn batch_higher_order_candles(
             let mut constituent_candles =
                 fetch_earliest_candles(pool, market_name, resolution.get_constituent_resolution())
                     .await?;
-            if constituent_candles.len() == 0 {
+            if constituent_candles.is_empty() {
                 // println!(
                 //     "Batching {}, but no candles found for: {:?}, {}",
                 //     resolution,
@@ -56,7 +56,7 @@ pub async fn batch_higher_order_candles(
             }
             let start_time = constituent_candles[0].start_time.duration_trunc(day())?;
 
-            if constituent_candles.len() == 0 {
+            if constituent_candles.is_empty() {
                 return Ok(Vec::new());
             }
 
@@ -100,7 +100,7 @@ fn combine_into_higher_order_candles(
     let mut combined_candles = vec![empty_candle; num_candles];
 
     let mut con_iter = constituent_candles.iter_mut().peekable();
-    let mut start_time = st.clone();
+    let mut start_time = st;
     let mut end_time = start_time + duration;
 
     let mut last_candle = seed_candle;
@@ -125,7 +125,7 @@ fn combine_into_higher_order_candles(
         combined_candles[i].end_time = end_time;
 
         start_time = end_time;
-        end_time = end_time + duration;
+        end_time += duration;
 
         last_candle = combined_candles[i].clone();
     }
@@ -152,7 +152,7 @@ pub async fn backfill_batch_higher_order_candles(
 ) -> anyhow::Result<Vec<Candle>> {
     let mut constituent_candles =
         fetch_earliest_candles(pool, market_name, resolution.get_constituent_resolution()).await?;
-    if constituent_candles.len() == 0 {
+    if constituent_candles.is_empty() {
         return Ok(vec![]);
     }
     let start_time = constituent_candles[0].start_time.duration_trunc(day())?;

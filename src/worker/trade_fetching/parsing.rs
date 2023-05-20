@@ -71,9 +71,9 @@ fn parse_openbook_fills_from_logs(
         }
     }
 
-    if fills_vector.len() > 0 {
-        return Some(fills_vector);
+    if !fills_vector.is_empty() {
+        Some(fills_vector)
     } else {
-        return None;
+        None
     }
 }

@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
     let config = Config {
         rpc_url: rpc_url.clone(),
     };
-    let markets = load_markets(&path_to_markets_json);
+    let markets = load_markets(path_to_markets_json);
     let market_infos = fetch_market_infos(&config, markets.clone()).await?;
     let mut target_markets = HashMap::new();
     for m in market_infos.clone() {
@@ -128,17 +128,17 @@ pub async fn get_signatures(
         }
     };
 
-    if sigs.len() == 0 {
+    if sigs.is_empty() {
         println!("No signatures found");
         return None;
     }
     let last = sigs.last().unwrap();
     // println!("{:?}", last.block_time.unwrap());
-    return Some((
+    Some((
         Signature::from_str(&last.signature).unwrap(),
         last.block_time.unwrap(),
         sigs,
-    ));
+    ))
 }
 
 pub async fn get_transactions(
@@ -165,13 +165,13 @@ pub async fn get_transactions(
 
     let txn_futs: Vec<_> = signatures
         .iter()
-        .map(|s| rpc_client.get_transaction_with_config(&s, txn_config))
+        .map(|s| rpc_client.get_transaction_with_config(s, txn_config))
         .collect();
 
     let mut txns = join_all(txn_futs).await;
 
     let fills = parse_trades_from_openbook_txns(&mut txns, target_markets);
-    if fills.len() > 0 {
+    if !fills.is_empty() {
         for fill in fills.into_iter() {
             // println!("Sending fill {:?}", fill);
             if let Err(_) = fill_sender.send(fill).await {

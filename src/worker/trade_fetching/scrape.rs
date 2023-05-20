@@ -62,12 +62,12 @@ pub async fn scrape_transactions(
         }
     };
 
-    if sigs.len() == 0 {
+    if sigs.is_empty() {
         println!("No signatures found");
         return before_sig;
     }
 
-    let last = sigs.last().clone().unwrap();
+    let last = sigs.last().unwrap();
     let request_last_sig = Signature::from_str(&last.signature).unwrap();
 
     sigs.retain(|sig| sig.err.is_none());
@@ -88,13 +88,13 @@ pub async fn scrape_transactions(
 
     let txn_futs: Vec<_> = signatures
         .iter()
-        .map(|s| rpc_client.get_transaction_with_config(&s, txn_config))
+        .map(|s| rpc_client.get_transaction_with_config(s, txn_config))
         .collect();
 
     let mut txns = join_all(txn_futs).await;
 
     let fills = parse_trades_from_openbook_txns(&mut txns, target_markets);
-    if fills.len() > 0 {
+    if !fills.is_empty() {
         for fill in fills.into_iter() {
             if let Err(_) = fill_sender.send(fill).await {
                 panic!("receiver dropped");

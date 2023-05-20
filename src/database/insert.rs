@@ -20,12 +20,10 @@ pub async fn persist_fill_events(
         while write_batch.len() < 10 {
             match fill_receiver.try_recv() {
                 Ok(event) => {
-                    if !write_batch.contains_key(&event) {
-                        write_batch.insert(event, 0);
-                    }
+                    write_batch.entry(event).or_insert(0);
                 }
                 Err(TryRecvError::Empty) => {
-                    if write_batch.len() > 0 {
+                    if !write_batch.is_empty() {
                         break;
                     } else {
                         continue;
@@ -37,7 +35,7 @@ pub async fn persist_fill_events(
             };
         }
 
-        if write_batch.len() > 0 {
+        if !write_batch.is_empty() {
             // print!("writing: {:?} events to DB\n", write_batch.len());
 
             // match conn.ping().await {
@@ -68,7 +66,7 @@ pub async fn persist_candles(
         //     Ok(_) => {
         match candles_receiver.try_recv() {
             Ok(candles) => {
-                if candles.len() == 0 {
+                if candles.is_empty() {
                     continue;
                 }
                 // print!("writing: {:?} candles to DB\n", candles.len());

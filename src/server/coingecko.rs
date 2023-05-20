@@ -71,7 +71,7 @@ pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, Ser
     let default_volume = CoinGecko24HourVolume::default();
     let volumes: Vec<CoinGecko24HourVolume> = raw_volumes
         .into_iter()
-        .map(|v| v.convert_to_readable(&markets))
+        .map(|v| v.convert_to_readable(markets))
         .collect();
     let tickers = markets
         .iter()

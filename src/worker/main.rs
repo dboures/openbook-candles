@@ -1,4 +1,4 @@
-use dotenv;
+
 use openbook_candles::structs::candle::Candle;
 use openbook_candles::structs::markets::{fetch_market_infos, load_markets};
 use openbook_candles::structs::openbook::OpenBookFillEvent;
@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
         rpc_url: rpc_url.clone(),
     };
 
-    let markets = load_markets(&path_to_markets_json);
+    let markets = load_markets(path_to_markets_json);
     let market_infos = fetch_market_infos(&config, markets.clone()).await?;
     let mut target_markets = HashMap::new();
     for m in market_infos.clone() {

@@ -4,7 +4,7 @@ use actix_web::{
     App, HttpServer,
 };
 use candles::get_candles;
-use dotenv;
+
 use markets::get_markets;
 use openbook_candles::{
     database::initialize::connect_to_database,

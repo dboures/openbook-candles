@@ -60,7 +60,7 @@ async fn batch_inner(
 }
 
 async fn send_candles(candles: Vec<Candle>, candles_sender: &Sender<Vec<Candle>>) {
-    if candles.len() > 0 {
+    if !candles.is_empty() {
         if let Err(_) = candles_sender.send(candles).await {
             panic!("candles receiver dropped");
         }

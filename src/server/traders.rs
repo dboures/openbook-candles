@@ -51,7 +51,7 @@ pub async fn get_top_traders_by_base_volume(
     let response = TraderResponse {
         start_time: info.from,
         end_time: info.to,
-        traders: traders,
+        traders,
         volume_type: VolumeType::Base.to_string(),
     };
     Ok(HttpResponse::Ok().json(response))
@@ -90,7 +90,7 @@ pub async fn get_top_traders_by_quote_volume(
     let response = TraderResponse {
         start_time: info.from,
         end_time: info.to,
-        traders: traders,
+        traders,
         volume_type: VolumeType::Quote.to_string(),
     };
     Ok(HttpResponse::Ok().json(response))

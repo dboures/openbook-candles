@@ -111,8 +111,8 @@ pub async fn fetch_market_infos(
         .value;
     for i in 0..mint_results.len() {
         let mut mint_account = mint_results[i].as_ref().unwrap().clone();
-        let mut mint_bytes: &[u8] = &mut mint_account.data[..];
-        let mint = Mint::unpack_from_slice(&mut mint_bytes).unwrap();
+        let mint_bytes: &[u8] = &mut mint_account.data[..];
+        let mint = Mint::unpack_from_slice(mint_bytes).unwrap();
 
         mint_key_map.insert(mint_keys[i], mint.decimals);
     }

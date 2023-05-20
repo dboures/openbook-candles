@@ -1,16 +1,15 @@
-use anchor_lang::prelude::Pubkey;
-use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+
+
 use deadpool_postgres::Object;
-use futures::future::join_all;
+
 use openbook_candles::{
     database::{
         initialize::connect_to_database,
-        insert::{build_candles_upsert_statement, persist_candles},
+        insert::{build_candles_upsert_statement},
     },
     structs::{
         candle::Candle,
         markets::{fetch_market_infos, load_markets},
-        openbook::OpenBookFillEvent,
         resolution::Resolution,
     },
     utils::{AnyhowWrap, Config},
@@ -19,9 +18,9 @@ use openbook_candles::{
         minute_candles::backfill_batch_1m_candles,
     },
 };
-use std::{collections::HashMap, env, str::FromStr};
+use std::{env};
 use strum::IntoEnumIterator;
-use tokio::sync::mpsc::{self, Sender};
+
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> anyhow::Result<()> {
@@ -35,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
     let config = Config {
         rpc_url: rpc_url.clone(),
     };
-    let markets = load_markets(&path_to_markets_json);
+    let markets = load_markets(path_to_markets_json);
     let market_infos = fetch_market_infos(&config, markets.clone()).await?;
     println!("Backfilling candles for {:?}", markets);
 
@@ -59,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn save_candles(candles: Vec<Candle>, client: Object) -> anyhow::Result<()> {
-    if candles.len() > 0 {
+    if !candles.is_empty() {
         let upsert_statement = build_candles_upsert_statement(candles);
         client
             .execute(&upsert_statement, &[])

@@ -25,10 +25,10 @@ pub async fn connect_to_database() -> anyhow::Result<Pool> {
     // fly secrets set PG_CLIENT_KEY=- < ./client.pks.b64 -a mango-fills
     let tls = if pg_config.pg_use_ssl {
         pg_config.pg.ssl_mode = Some(SslMode::Require);
-        let ca_cert = fs::read(&pg_config.pg_ca_cert_path.expect("reading ca cert from env"))
+        let ca_cert = fs::read(pg_config.pg_ca_cert_path.expect("reading ca cert from env"))
             .expect("reading ca cert from file");
         let client_key = fs::read(
-            &pg_config
+            pg_config
                 .pg_client_key_path
                 .expect("reading client key from env"),
         )
