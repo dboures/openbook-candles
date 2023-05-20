@@ -279,8 +279,8 @@ pub async fn fetch_coingecko_24h_volume(
     let stmt = client
         .prepare(
             r#"select market as "address!",
-        sum(native_qty_paid) as "raw_quote_size!",
-        sum(native_qty_received) as "raw_base_size!"
+        sum(native_qty_received) as "raw_base_size!",
+        sum(native_qty_paid) as "raw_quote_size!"
         from fills 
         where "time" >= current_timestamp - interval '1 day' 
         and bid = true
