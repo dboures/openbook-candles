@@ -4,43 +4,31 @@
         "address" : "8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6"
     },
     {
-        "name" : "RLB/USDC",
-        "address" : "72h8rWaWwfPUL36PAFqyQZU8RT1V3FKG7Nc45aK89xTs"
+        "name" : "wBTCpo/USDC",
+        "address" : "3BAKsQd3RuhZKES2DGysMhjBdwjZYKYmxRqnSMtZ4KSN"
     },
     {
         "name" : "MNGO/USDC",
         "address" : "3NnxQvDcZXputNMxaxsGvqiKpqgPfSYXpNigZNFcknmD"
     },
     {
-        "name" : "BONK/SOL",
-        "address" : "Hs97TCZeuYiJxooo3U73qEHXg3dKpRL4uYKYRryEK9CF"
+        "name": "BONK/SOL",
+        "address": "Hs97TCZeuYiJxooo3U73qEHXg3dKpRL4uYKYRryEK9CF"
     },
     {
-        "name" : "WBTC/USDC",
-        "address" : "3BAKsQd3RuhZKES2DGysMhjBdwjZYKYmxRqnSMtZ4KSN"
+        "name": "DUAL/USDC",
+        "address": "H6rrYK3SUHF2eguZCyJxnSBMJqjXhUtuaki6PHiutvum"
     },
     {
         "name": "mSOL/USDC",
         "address": "9Lyhks5bQQxb9EyyX55NtgKQzpM4WK7JCmeaWuQ5MoXD"
     },
     {
-        "name": "SOL/USDT",
-        "address": "2AdaV97p6SfkuMQJdu8DHhBhmJe7oWdvbm52MJfYQmfA"
-    },
-    {
-        "name": "USDT/USDC",
-        "address": "B2na8Awyd7cpC59iEU43FagJAPLigr3AP3s38KM982bu"
-    },
-    {
-        "name": "ETH/USDC",
+        "name": "ETHpo/USDC",
         "address": "BbJgE7HZMaDp5NTYvRh5jZSkQPVDTU8ubPFtpogUkEj4"
     },
     {
-        "name": "RAY/USDC",
-        "address": "DZjbn4XC8qoHKikZqzmhemykVzmossoayV9ffbsUqxVj"
-    },
-    {
-        "name": "RAY/USDT",
-        "address": "GpHbiJJ9VHiuHVXeoet121Utrbm1CSNNzYrBKB8Xz2oz"
+        "name": "BONK/USDC",
+        "address": "8PhnCfgqpgFM7ZJvttGdBVMXHuU4Q23ACxCvWkbs1M71"
     }
 ]
