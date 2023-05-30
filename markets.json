@@ -30,5 +30,9 @@
     {
         "name": "BONK/USDC",
         "address": "8PhnCfgqpgFM7ZJvttGdBVMXHuU4Q23ACxCvWkbs1M71"
+    },
+    {
+        "name": "RAY/USDC",
+        "address": "DZjbn4XC8qoHKikZqzmhemykVzmossoayV9ffbsUqxV"
     }
 ]
