@@ -16,6 +16,10 @@
         "address" : "Hs97TCZeuYiJxooo3U73qEHXg3dKpRL4uYKYRryEK9CF"
     },
     {
+        "name" : "BONK/USDC",
+        "address" : "8PhnCfgqpgFM7ZJvttGdBVMXHuU4Q23ACxCvWkbs1M71"
+    },
+    {
         "name" : "WBTC/USDC",
         "address" : "3BAKsQd3RuhZKES2DGysMhjBdwjZYKYmxRqnSMtZ4KSN"
     },
@@ -40,7 +44,7 @@
         "address": "DZjbn4XC8qoHKikZqzmhemykVzmossoayV9ffbsUqxVj"
     },
     {
-        "name": "RAY/USDT",
-        "address": "GpHbiJJ9VHiuHVXeoet121Utrbm1CSNNzYrBKB8Xz2oz"
+        "name": "DUAL/USDC",
+        "address": "H6rrYK3SUHF2eguZCyJxnSBMJqjXhUtuaki6PHiutvum"
     }
 ]
