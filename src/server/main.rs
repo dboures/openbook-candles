@@ -1,8 +1,9 @@
 use actix_web::{
+    http::StatusCode,
     middleware::Logger,
     rt::System,
     web::{self, Data},
-    App, HttpServer, http::StatusCode,
+    App, HttpServer,
 };
 use actix_web_prom::PrometheusMetricsBuilder;
 use candles::get_candles;
@@ -92,13 +93,10 @@ async fn main() -> std::io::Result<()> {
     // Thread to serve metrics endpoint privately
     let private_server = thread::spawn(move || {
         let sys = System::new();
-        let srv = HttpServer::new(move || {
-            App::new()
-                .wrap(private_metrics.clone())
-        })
-        .bind("0.0.0.0:9091")
-        .unwrap()
-        .run();
+        let srv = HttpServer::new(move || App::new().wrap(private_metrics.clone()))
+            .bind("0.0.0.0:9091")
+            .unwrap()
+            .run();
         sys.block_on(srv).unwrap();
     });
 

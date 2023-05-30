@@ -70,3 +70,4 @@ num_enum = "0.6.1"
 
 config = "0.13.1"
 prometheus = "0.13.3"
+lazy_static = "1.4.0"

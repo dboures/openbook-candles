@@ -1,8 +1,8 @@
-
 use openbook_candles::structs::candle::Candle;
 use openbook_candles::structs::markets::{fetch_market_infos, load_markets};
 use openbook_candles::structs::openbook::OpenBookFillEvent;
 use openbook_candles::utils::Config;
+use openbook_candles::worker::metrics::serve_metrics;
 use openbook_candles::worker::trade_fetching::scrape::scrape;
 use openbook_candles::{
     database::{
@@ -33,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     let market_infos = fetch_market_infos(&config, markets.clone()).await?;
     let mut target_markets = HashMap::new();
     for m in market_infos.clone() {
-        target_markets.insert(Pubkey::from_str(&m.address)?, 0);
+        target_markets.insert(Pubkey::from_str(&m.address)?, m.name);
     }
     println!("{:?}", target_markets);
 
@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     setup_database(&pool).await?;
     let mut handles = vec![];
 
-    let (fill_sender, mut fill_receiver) = mpsc::channel::<OpenBookFillEvent>(1000);
+    let (fill_sender, mut fill_receiver) = mpsc::channel::<OpenBookFillEvent>(10000);
 
     handles.push(tokio::spawn(async move {
         scrape(&config, &fill_sender, &target_markets).await;
@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }));
 
-    let (candle_sender, mut candle_receiver) = mpsc::channel::<Vec<Candle>>(1000);
+    let (candle_sender, mut candle_receiver) = mpsc::channel::<Vec<Candle>>(100000);
 
     for market in market_infos.into_iter() {
         let sender = candle_sender.clone();
@@ -76,6 +76,11 @@ async fn main() -> anyhow::Result<()> {
                 .await
                 .unwrap();
         }
+    }));
+
+    handles.push(tokio::spawn(async move {
+        // TODO: this is ugly af
+        serve_metrics().await.unwrap().await.unwrap();
     }));
 
     futures::future::join_all(handles).await;

@@ -67,10 +67,7 @@ pub async fn fetch_fills_from(
     let rows = client
         .query(&stmt, &[&market_address_string, &start_time, &end_time])
         .await?;
-    Ok(rows
-        .into_iter()
-        .map(PgOpenBookFill::from_row)
-        .collect())
+    Ok(rows.into_iter().map(PgOpenBookFill::from_row).collect())
 }
 
 pub async fn fetch_latest_finished_candle(

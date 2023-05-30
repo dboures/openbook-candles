@@ -11,7 +11,7 @@ const PROGRAM_DATA: &str = "Program data: ";
 
 pub fn parse_trades_from_openbook_txns(
     txns: &mut Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>,
-    target_markets: &HashMap<Pubkey, u8>,
+    target_markets: &HashMap<Pubkey, String>,
 ) -> Vec<OpenBookFillEvent> {
     let mut fills_vector = Vec::<OpenBookFillEvent>::new();
     for txn in txns.iter_mut() {
@@ -42,7 +42,7 @@ pub fn parse_trades_from_openbook_txns(
 
 fn parse_openbook_fills_from_logs(
     logs: &Vec<String>,
-    target_markets: &HashMap<Pubkey, u8>,
+    target_markets: &HashMap<Pubkey, String>,
     block_time: i64,
 ) -> Option<Vec<OpenBookFillEvent>> {
     let mut fills_vector = Vec::<OpenBookFillEvent>::new();

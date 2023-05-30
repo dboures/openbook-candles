@@ -8,14 +8,16 @@ use solana_transaction_status::UiTransactionEncoding;
 use std::{collections::HashMap, str::FromStr, time::Duration as WaitDuration};
 use tokio::sync::mpsc::Sender;
 
-use crate::{structs::openbook::OpenBookFillEvent, utils::Config};
+use crate::{
+    structs::openbook::OpenBookFillEvent, utils::Config, worker::metrics::METRIC_FILLS_TOTAL,
+};
 
 use super::parsing::parse_trades_from_openbook_txns;
 
 pub async fn scrape(
     config: &Config,
     fill_sender: &Sender<OpenBookFillEvent>,
-    target_markets: &HashMap<Pubkey, u8>,
+    target_markets: &HashMap<Pubkey, String>,
 ) {
     let rpc_client =
         RpcClient::new_with_commitment(config.rpc_url.clone(), CommitmentConfig::processed());
@@ -39,7 +41,7 @@ pub async fn scrape_transactions(
     before_sig: Option<Signature>,
     limit: Option<usize>,
     fill_sender: &Sender<OpenBookFillEvent>,
-    target_markets: &HashMap<Pubkey, u8>,
+    target_markets: &HashMap<Pubkey, String>,
 ) -> Option<Signature> {
     let rpc_config = GetConfirmedSignaturesForAddress2Config {
         before: before_sig,
@@ -96,9 +98,11 @@ pub async fn scrape_transactions(
     let fills = parse_trades_from_openbook_txns(&mut txns, target_markets);
     if !fills.is_empty() {
         for fill in fills.into_iter() {
+            let market_name = target_markets.get(&fill.market).unwrap();
             if let Err(_) = fill_sender.send(fill).await {
                 panic!("receiver dropped");
             }
+            METRIC_FILLS_TOTAL.with_label_values(&[market_name]).inc();
         }
     }
 

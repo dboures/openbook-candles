@@ -36,6 +36,7 @@ pub async fn connect_to_database() -> anyhow::Result<Pool> {
         MakeTlsConnector::new(
             TlsConnector::builder()
                 .add_root_certificate(Certificate::from_pem(&ca_cert)?)
+                // TODO: make this configurable
                 .identity(Identity::from_pkcs12(&client_key, "pass")?)
                 .danger_accept_invalid_certs(false)
                 .build()?,
