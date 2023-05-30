@@ -14,9 +14,7 @@ pub async fn fetch_earliest_fill(
 ) -> anyhow::Result<Option<PgOpenBookFill>> {
     let client = pool.get().await?;
 
-    let stmt = client
-        .prepare(
-            r#"SELECT 
+    let stmt = r#"SELECT 
         time as "time!",
         bid as "bid!",
         maker as "maker!",
@@ -26,11 +24,9 @@ pub async fn fetch_earliest_fill(
         from fills 
         where market = $1 
         and maker = true
-        ORDER BY time asc LIMIT 1"#,
-        )
-        .await?;
+        ORDER BY time asc LIMIT 1"#;
 
-    let row = client.query_opt(&stmt, &[&market_address_string]).await?;
+    let row = client.query_opt(stmt, &[&market_address_string]).await?;
 
     match row {
         Some(r) => Ok(Some(PgOpenBookFill::from_row(r))),
@@ -46,9 +42,7 @@ pub async fn fetch_fills_from(
 ) -> anyhow::Result<Vec<PgOpenBookFill>> {
     let client = pool.get().await?;
 
-    let stmt = client
-        .prepare(
-            r#"SELECT 
+    let stmt = r#"SELECT 
          time as "time!",
          bid as "bid!",
          maker as "maker!",
@@ -60,12 +54,10 @@ pub async fn fetch_fills_from(
          and time >= $2::timestamptz
          and time < $3::timestamptz
          and maker = true
-         ORDER BY time asc"#,
-        )
-        .await?;
+         ORDER BY time asc"#;
 
     let rows = client
-        .query(&stmt, &[&market_address_string, &start_time, &end_time])
+        .query(stmt, &[&market_address_string, &start_time, &end_time])
         .await?;
     Ok(rows
         .into_iter()
@@ -80,9 +72,7 @@ pub async fn fetch_latest_finished_candle(
 ) -> anyhow::Result<Option<Candle>> {
     let client = pool.get().await?;
 
-    let stmt = client
-        .prepare(
-            r#"SELECT 
+    let stmt = r#"SELECT 
         market_name as "market_name!",
         start_time as "start_time!",
         end_time as "end_time!",
@@ -97,12 +87,10 @@ pub async fn fetch_latest_finished_candle(
         where market_name = $1
         and resolution = $2
         and complete = true
-        ORDER BY start_time desc LIMIT 1"#,
-        )
-        .await?;
+        ORDER BY start_time desc LIMIT 1"#;
 
     let row = client
-        .query_opt(&stmt, &[&market_name, &resolution.to_string()])
+        .query_opt(stmt, &[&market_name, &resolution.to_string()])
         .await?;
 
     match row {
@@ -120,9 +108,7 @@ pub async fn fetch_earliest_candles(
 ) -> anyhow::Result<Vec<Candle>> {
     let client = pool.get().await?;
 
-    let stmt = client
-        .prepare(
-            r#"SELECT 
+    let stmt = r#"SELECT 
         market_name as "market_name!",
         start_time as "start_time!",
         end_time as "end_time!",
@@ -136,12 +122,10 @@ pub async fn fetch_earliest_candles(
         from candles
         where market_name = $1
         and resolution = $2
-        ORDER BY start_time asc"#,
-        )
-        .await?;
+        ORDER BY start_time asc"#;
 
     let rows = client
-        .query(&stmt, &[&market_name, &resolution.to_string()])
+        .query(stmt, &[&market_name, &resolution.to_string()])
         .await?;
 
     Ok(rows.into_iter().map(Candle::from_row).collect())
@@ -156,9 +140,7 @@ pub async fn fetch_candles_from(
 ) -> anyhow::Result<Vec<Candle>> {
     let client = pool.get().await?;
 
-    let stmt = client
-        .prepare(
-            r#"SELECT 
+    let stmt = r#"SELECT 
         market_name as "market_name!",
         start_time as "start_time!",
         end_time as "end_time!",
@@ -174,13 +156,11 @@ pub async fn fetch_candles_from(
         and resolution = $2
         and start_time >= $3
         and end_time <= $4
-        ORDER BY start_time asc"#,
-        )
-        .await?;
+        ORDER BY start_time asc"#;
 
     let rows = client
         .query(
-            &stmt,
+            stmt,
             &[
                 &market_name,
                 &resolution.to_string(),
@@ -201,9 +181,7 @@ pub async fn fetch_top_traders_by_base_volume_from(
 ) -> anyhow::Result<Vec<PgTrader>> {
     let client = pool.get().await?;
 
-    let stmt = client
-        .prepare(
-            r#"SELECT 
+    let stmt = r#"SELECT 
             open_orders_owner, 
             sum(
             native_qty_paid * CASE bid WHEN true THEN 0 WHEN false THEN 1 END
@@ -221,12 +199,10 @@ pub async fn fetch_top_traders_by_base_volume_from(
         + 
         sum(native_qty_received * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) 
     DESC 
-    LIMIT 10000"#,
-        )
-        .await?;
+    LIMIT 10000"#;
 
     let rows = client
-        .query(&stmt, &[&market_address_string, &start_time, &end_time])
+        .query(stmt, &[&market_address_string, &start_time, &end_time])
         .await?;
 
     Ok(rows.into_iter().map(PgTrader::from_row).collect())
@@ -240,9 +216,7 @@ pub async fn fetch_top_traders_by_quote_volume_from(
 ) -> anyhow::Result<Vec<PgTrader>> {
     let client = pool.get().await?;
 
-    let stmt = client
-        .prepare(
-            r#"SELECT 
+    let stmt = r#"SELECT 
             open_orders_owner, 
             sum(
                 native_qty_received * CASE bid WHEN true THEN 0 WHEN false THEN 1 END
@@ -260,12 +234,10 @@ pub async fn fetch_top_traders_by_quote_volume_from(
         + 
         sum(native_qty_paid * CASE bid WHEN true THEN 1 WHEN false THEN 0 END) 
     DESC  
-    LIMIT 10000"#,
-        )
-        .await?;
+    LIMIT 10000"#;
 
     let rows = client
-        .query(&stmt, &[&market_address_string, &start_time, &end_time])
+        .query(stmt, &[&market_address_string, &start_time, &end_time])
         .await?;
 
     Ok(rows.into_iter().map(PgTrader::from_row).collect())
@@ -277,9 +249,7 @@ pub async fn fetch_coingecko_24h_volume(
 ) -> anyhow::Result<Vec<PgCoinGecko24HourVolume>> {
     let client = pool.get().await?;
 
-    let stmt = client
-        .prepare(
-            r#"SELECT 
+    let stmt = r#"SELECT 
             t1.market, 
             COALESCE(t2.native_qty_received, 0) as "raw_base_size!",
             COALESCE(t2.native_qty_paid, 0) as "raw_quote_size!"
@@ -298,11 +268,9 @@ pub async fn fetch_coingecko_24h_volume(
             where "time" >= current_timestamp - interval '1 day' 
             and bid = true
             group by market
-        ) t2 ON t1.market = t2.market"#,
-        )
-        .await?;
+        ) t2 ON t1.market = t2.market"#;
 
-    let rows = client.query(&stmt, &[&market_address_strings]).await?;
+    let rows = client.query(stmt, &[&market_address_strings]).await?;
 
     Ok(rows
         .into_iter()
@@ -316,9 +284,7 @@ pub async fn fetch_coingecko_24h_high_low(
 ) -> anyhow::Result<Vec<PgCoinGecko24HighLow>> {
     let client = pool.get().await?;
 
-    let stmt = client
-        .prepare(
-            r#"select 
+    let stmt = r#"select 
             r.market_name as "market_name!", 
             coalesce(c.high, r.high) as "high!", 
             coalesce(c.low, r.low) as "low!", 
@@ -348,11 +314,9 @@ pub async fn fetch_coingecko_24h_high_low(
                 "resolution" = '1M' 
                 and "start_time" >= current_timestamp - interval '1 day'
                 group by market_name
-            ) c on r.market_name = c.market_name"#,
-        )
-        .await?;
+            ) c on r.market_name = c.market_name"#;
 
-    let rows = client.query(&stmt, &[&market_names]).await?;
+    let rows = client.query(stmt, &[&market_names]).await?;
 
     Ok(rows
         .into_iter()
