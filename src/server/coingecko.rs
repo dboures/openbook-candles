@@ -51,10 +51,12 @@ pub async fn pairs(context: web::Data<WebContext>) -> Result<HttpResponse, Serve
 pub async fn tickers(context: web::Data<WebContext>) -> Result<HttpResponse, ServerError> {
     // let client = RpcClient::new(context.rpc_url.clone());
     let markets = &context.markets;
+    let market_names = markets.iter().map(|x| x.name.as_str()).collect();
+    let market_addresses = markets.iter().map(|x| x.address.as_str()).collect();
 
     // let bba_fut = get_best_bids_and_asks(client, markets);
-    let volume_fut = fetch_coingecko_24h_volume(&context.pool);
-    let high_low_fut = fetch_coingecko_24h_high_low(&context.pool);
+    let volume_fut = fetch_coingecko_24h_volume(&context.pool, &market_addresses);
+    let high_low_fut = fetch_coingecko_24h_high_low(&context.pool, &market_names);
 
     let (volume_query, high_low_quey) = join!(volume_fut, high_low_fut,);
 

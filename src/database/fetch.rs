@@ -273,22 +273,36 @@ pub async fn fetch_top_traders_by_quote_volume_from(
 
 pub async fn fetch_coingecko_24h_volume(
     pool: &Pool,
+    market_address_strings: &Vec<&str>,
 ) -> anyhow::Result<Vec<PgCoinGecko24HourVolume>> {
     let client = pool.get().await?;
 
     let stmt = client
         .prepare(
-            r#"select market as "address!",
-        sum(native_qty_received) as "raw_base_size!",
-        sum(native_qty_paid) as "raw_quote_size!"
-        from fills 
-        where "time" >= current_timestamp - interval '1 day' 
-        and bid = true
-        group by market"#,
+            r#"SELECT 
+            t1.market, 
+            COALESCE(t2.native_qty_received, 0) as "raw_base_size!",
+            COALESCE(t2.native_qty_paid, 0) as "raw_quote_size!"
+        FROM (
+            SELECT distinct on (market) *
+            FROM fills f
+            where bid = true
+            and market = any($1) 
+        order by market, "time" desc
+        ) t1
+        LEFT JOIN (
+            select market,
+            sum(native_qty_received) as "native_qty_received",
+            sum(native_qty_paid) as "native_qty_paid"
+            from fills 
+            where "time" >= current_timestamp - interval '1 day' 
+            and bid = true
+            group by market
+        ) t2 ON t1.market = t2.market"#,
         )
         .await?;
 
-    let rows = client.query(&stmt, &[]).await?;
+    let rows = client.query(&stmt, &[&market_address_strings]).await?;
 
     Ok(rows
         .into_iter()
@@ -298,39 +312,47 @@ pub async fn fetch_coingecko_24h_volume(
 
 pub async fn fetch_coingecko_24h_high_low(
     pool: &Pool,
+    market_names: &Vec<&str>,
 ) -> anyhow::Result<Vec<PgCoinGecko24HighLow>> {
     let client = pool.get().await?;
 
     let stmt = client
         .prepare(
             r#"select 
-        g.market_name as "market_name!", 
-        g.high as "high!", 
-        g.low as "low!", 
-        c."close" as "close!"
-      from 
-        (
-          SELECT 
-            market_name, 
-            max(start_time) as "start_time", 
-            max(high) as "high", 
-            min(low) as "low" 
+            r.market_name as "market_name!", 
+            coalesce(c.high, r.high) as "high!", 
+            coalesce(c.low, r.low) as "low!", 
+            r."close" as "close!"
           from 
-            candles 
-          where 
-            "resolution" = '1M' 
-            and "start_time" >= current_timestamp - interval '1 day' 
-          group by 
-            market_name
-        ) as g 
-        join candles c on g.market_name = c.market_name 
-        and g.start_time = c.start_time 
-      where 
-        c.resolution = '1M'"#,
+            (
+              SELECT *
+              from 
+                candles 
+               where (market_name, start_time, resolution) in (
+                select market_name, max(start_time), resolution 
+                from candles 
+                where "resolution" = '1M' 
+                and market_name = any($1)
+                group by market_name, resolution
+            )
+            ) as r 
+            left join (
+            SELECT 
+                market_name, 
+                max(start_time) as "start_time", 
+                max(high) as "high", 
+                min(low) as "low"
+              from 
+                candles 
+              where 
+                "resolution" = '1M' 
+                and "start_time" >= current_timestamp - interval '1 day'
+                group by market_name
+            ) c on r.market_name = c.market_name"#,
         )
         .await?;
 
-    let rows = client.query(&stmt, &[]).await?;
+    let rows = client.query(&stmt, &[&market_names]).await?;
 
     Ok(rows
         .into_iter()
