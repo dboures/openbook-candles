@@ -5,7 +5,10 @@ use solana_transaction_status::{
 };
 use std::{collections::HashMap, io::Error};
 
-use crate::{structs::openbook::{OpenBookFillEvent, OpenBookFillEventRaw}, worker::metrics::METRIC_RPC_ERRORS_TOTAL};
+use crate::{
+    structs::openbook::{OpenBookFillEvent, OpenBookFillEventRaw},
+    worker::metrics::METRIC_RPC_ERRORS_TOTAL,
+};
 
 const PROGRAM_DATA: &str = "Program data: ";
 
@@ -35,7 +38,9 @@ pub fn parse_trades_from_openbook_txns(
                 }
             }
             Err(_) => {
-                METRIC_RPC_ERRORS_TOTAL.with_label_values(&["getTransaction"]).inc();
+                METRIC_RPC_ERRORS_TOTAL
+                    .with_label_values(&["getTransaction"])
+                    .inc();
             }
         }
     }

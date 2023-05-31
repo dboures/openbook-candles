@@ -2,7 +2,10 @@ use openbook_candles::structs::candle::Candle;
 use openbook_candles::structs::markets::{fetch_market_infos, load_markets};
 use openbook_candles::structs::openbook::OpenBookFillEvent;
 use openbook_candles::utils::Config;
-use openbook_candles::worker::metrics::{serve_metrics, METRIC_DB_POOL_AVAILABLE, METRIC_DB_POOL_SIZE, METRIC_CANDLES_QUEUE_LENGTH, METRIC_FILLS_QUEUE_LENGTH};
+use openbook_candles::worker::metrics::{
+    serve_metrics, METRIC_CANDLES_QUEUE_LENGTH, METRIC_DB_POOL_AVAILABLE, METRIC_DB_POOL_SIZE,
+    METRIC_FILLS_QUEUE_LENGTH,
+};
 use openbook_candles::worker::trade_fetching::scrape::scrape;
 use openbook_candles::{
     database::{
@@ -91,8 +94,10 @@ async fn main() -> anyhow::Result<()> {
             METRIC_DB_POOL_AVAILABLE.set(pool_status.available as i64);
             METRIC_DB_POOL_SIZE.set(pool_status.size as i64);
 
-            METRIC_CANDLES_QUEUE_LENGTH.set((candles_queue_max_size - monitor_candle_channel.capacity()) as i64);
-            METRIC_FILLS_QUEUE_LENGTH.set((fills_queue_max_size - monitor_fill_channel.capacity()) as i64);
+            METRIC_CANDLES_QUEUE_LENGTH
+                .set((candles_queue_max_size - monitor_candle_channel.capacity()) as i64);
+            METRIC_FILLS_QUEUE_LENGTH
+                .set((fills_queue_max_size - monitor_fill_channel.capacity()) as i64);
 
             tokio::time::sleep(WaitDuration::from_secs(10)).await;
         }

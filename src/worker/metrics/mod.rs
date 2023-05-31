@@ -1,7 +1,10 @@
 use actix_web::{dev::Server, http::StatusCode, App, HttpServer};
 use actix_web_prom::PrometheusMetricsBuilder;
 use lazy_static::lazy_static;
-use prometheus::{register_int_counter_vec_with_registry, IntCounterVec, Registry, IntGauge, register_int_gauge_with_registry, register_int_counter_with_registry, IntCounter};
+use prometheus::{
+    register_int_counter_vec_with_registry, register_int_gauge_with_registry, IntCounterVec,
+    IntGauge, Registry,
+};
 
 lazy_static! {
     static ref METRIC_REGISTRY: Registry =
@@ -39,13 +42,14 @@ lazy_static! {
         METRIC_REGISTRY
     )
     .unwrap();
-    pub static ref METRIC_RPC_ERRORS_TOTAL: IntCounterVec = register_int_counter_vec_with_registry!(
-        "rpc_errors_total",
-        "RPC errors while scraping",
-        &["method"],
-        METRIC_REGISTRY
-    )
-    .unwrap();
+    pub static ref METRIC_RPC_ERRORS_TOTAL: IntCounterVec =
+        register_int_counter_vec_with_registry!(
+            "rpc_errors_total",
+            "RPC errors while scraping",
+            &["method"],
+            METRIC_REGISTRY
+        )
+        .unwrap();
     pub static ref METRIC_DB_POOL_SIZE: IntGauge = register_int_gauge_with_registry!(
         "db_pool_size",
         "Current size of the DB connection pool",
