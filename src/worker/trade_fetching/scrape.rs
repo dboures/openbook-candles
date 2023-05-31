@@ -9,7 +9,7 @@ use std::{collections::HashMap, str::FromStr, time::Duration as WaitDuration};
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    structs::openbook::OpenBookFillEvent, utils::Config, worker::metrics::METRIC_FILLS_TOTAL,
+    structs::openbook::OpenBookFillEvent, utils::Config, worker::metrics::{METRIC_FILLS_TOTAL, METRIC_RPC_ERRORS_TOTAL},
 };
 
 use super::parsing::parse_trades_from_openbook_txns;
@@ -60,6 +60,7 @@ pub async fn scrape_transactions(
         Ok(s) => s,
         Err(e) => {
             println!("Error in get_signatures_for_address_with_config: {}", e);
+            METRIC_RPC_ERRORS_TOTAL.with_label_values(&["getSignaturesForAddress"]).inc();
             return before_sig;
         }
     };

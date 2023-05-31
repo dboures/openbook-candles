@@ -13,6 +13,8 @@ use crate::{
 
 use self::higher_order_candles::batch_higher_order_candles;
 
+use super::metrics::METRIC_CANDLES_TOTAL;
+
 pub async fn batch_for_market(
     pool: &Pool,
     candles_sender: &Sender<Vec<Candle>>,
@@ -47,14 +49,15 @@ async fn batch_inner(
 ) -> anyhow::Result<()> {
     let market_name = &market.name.clone();
     let candles = batch_1m_candles(pool, market).await?;
-    send_candles(candles, candles_sender).await;
-
+    send_candles(candles.clone(), candles_sender).await;
+    METRIC_CANDLES_TOTAL.with_label_values(&[market.name.as_str()]).inc_by(candles.clone().len() as u64);
     for resolution in Resolution::iter() {
         if resolution == Resolution::R1m {
             continue;
         }
         let candles = batch_higher_order_candles(pool, market_name, resolution).await?;
-        send_candles(candles, candles_sender).await;
+        send_candles(candles.clone(), candles_sender).await;
+        METRIC_CANDLES_TOTAL.with_label_values(&[market.name.as_str()]).inc_by(candles.clone().len() as u64);
     }
     Ok(())
 }
