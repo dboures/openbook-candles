@@ -3,6 +3,7 @@ pub mod minute_candles;
 
 use chrono::Duration;
 use deadpool_postgres::Pool;
+use log::{error, warn};
 use strum::IntoEnumIterator;
 use tokio::{sync::mpsc::Sender, time::sleep};
 
@@ -23,13 +24,13 @@ pub async fn batch_for_market(
     loop {
         let sender = candles_sender.clone();
         let market_clone = market.clone();
-        // let client = pool.get().await?;
+
         loop {
             sleep(Duration::milliseconds(2000).to_std()?).await;
             match batch_inner(pool, &sender, &market_clone).await {
                 Ok(_) => {}
                 Err(e) => {
-                    println!(
+                    error!(
                         "Batching thread failed for {:?} with error: {:?}",
                         market_clone.name.clone(),
                         e
@@ -38,7 +39,7 @@ pub async fn batch_for_market(
                 }
             };
         }
-        println!("Restarting {:?} batching thread", market.name);
+        warn!("Restarting {:?} batching thread", market.name);
     }
 }
 

@@ -2,6 +2,7 @@ use std::cmp::min;
 
 use chrono::{DateTime, Duration, DurationRound, Utc};
 use deadpool_postgres::Pool;
+use log::debug;
 
 use crate::{
     database::fetch::{fetch_earliest_fill, fetch_fills_from, fetch_latest_finished_candle},
@@ -40,7 +41,7 @@ pub async fn batch_1m_candles(pool: &Pool, market: &MarketInfo) -> anyhow::Resul
             let earliest_fill = fetch_earliest_fill(pool, market_address).await?;
 
             if earliest_fill.is_none() {
-                println!("No fills found for: {:?}", market_name);
+                debug!("No fills found for: {:?}", market_name);
                 return Ok(Vec::new());
             }
 
@@ -132,7 +133,7 @@ pub async fn backfill_batch_1m_candles(
 
     let earliest_fill = fetch_earliest_fill(pool, &market.address).await?;
     if earliest_fill.is_none() {
-        println!("No fills found for: {:?}", &market_name);
+        debug!("No fills found for: {:?}", &market_name);
         return Ok(candles);
     }
 

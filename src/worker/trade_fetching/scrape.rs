@@ -1,4 +1,5 @@
 use futures::future::join_all;
+use log::{debug, warn};
 use solana_client::{
     nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
     rpc_config::RpcTransactionConfig,
@@ -61,7 +62,7 @@ pub async fn scrape_transactions(
     {
         Ok(s) => s,
         Err(e) => {
-            println!("Error in get_signatures_for_address_with_config: {}", e);
+            warn!("rpc error in get_signatures_for_address_with_config: {}", e);
             METRIC_RPC_ERRORS_TOTAL
                 .with_label_values(&["getSignaturesForAddress"])
                 .inc();
@@ -70,7 +71,7 @@ pub async fn scrape_transactions(
     };
 
     if sigs.is_empty() {
-        println!("No signatures found");
+        debug!("No signatures found");
         return before_sig;
     }
 

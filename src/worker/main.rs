@@ -1,3 +1,4 @@
+use log::{error, info};
 use openbook_candles::structs::candle::Candle;
 use openbook_candles::structs::markets::{fetch_market_infos, load_markets};
 use openbook_candles::structs::openbook::OpenBookFillEvent;
@@ -21,6 +22,7 @@ use tokio::sync::mpsc;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> anyhow::Result<()> {
+    env_logger::init();
     dotenv::dotenv().ok();
 
     let args: Vec<String> = env::args().collect();
@@ -41,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
     for m in market_infos.clone() {
         target_markets.insert(Pubkey::from_str(&m.address)?, m.name);
     }
-    println!("{:?}", target_markets);
+    info!("{:?}", target_markets);
 
     let pool = connect_to_database().await?;
     setup_database(&pool).await?;
@@ -71,7 +73,7 @@ async fn main() -> anyhow::Result<()> {
             batch_for_market(&batch_pool, &sender, &market)
                 .await
                 .unwrap();
-            println!("SOMETHING WENT WRONG");
+            error!("batching halted for market {}", &market.name);
         }));
     }
 

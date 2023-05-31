@@ -1,5 +1,6 @@
 use chrono::{DateTime, Duration, DurationRound, Utc};
 use deadpool_postgres::Pool;
+use log::debug;
 use std::cmp::max;
 
 use crate::{
@@ -46,12 +47,12 @@ pub async fn batch_higher_order_candles(
                 fetch_earliest_candles(pool, market_name, resolution.get_constituent_resolution())
                     .await?;
             if constituent_candles.is_empty() {
-                // println!(
-                //     "Batching {}, but no candles found for: {:?}, {}",
-                //     resolution,
-                //     market_name,
-                //     resolution.get_constituent_resolution()
-                // );
+                debug!(
+                    "Batching {}, but no candles found for: {:?}, {}",
+                    resolution,
+                    market_name,
+                    resolution.get_constituent_resolution()
+                );
                 return Ok(Vec::new());
             }
             let start_time = constituent_candles[0].start_time.duration_trunc(day())?;
@@ -82,7 +83,7 @@ fn combine_into_higher_order_candles(
     st: DateTime<Utc>,
     seed_candle: Candle,
 ) -> Vec<Candle> {
-    // println!("target_resolution: {}", target_resolution);
+    debug!("combining for target_resolution: {}", target_resolution);
 
     let duration = target_resolution.get_duration();
 

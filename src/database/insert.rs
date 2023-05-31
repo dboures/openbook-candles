@@ -1,4 +1,5 @@
 use deadpool_postgres::Pool;
+use log::debug;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
@@ -36,22 +37,14 @@ pub async fn persist_fill_events(
         }
 
         if !write_batch.is_empty() {
-            // print!("writing: {:?} events to DB\n", write_batch.len());
+            debug!("writing: {:?} events to DB\n", write_batch.len());
 
-            // match conn.ping().await {
-            //     Ok(_) => {
             let upsert_statement = build_fills_upsert_statement(write_batch);
             client
                 .execute(&upsert_statement, &[])
                 .await
                 .map_err_anyhow()
                 .unwrap();
-            //     }
-            //     Err(_) => {
-            //         println!("Fills ping failed");
-            //         break;
-            //     }
-            // }
         }
     }
 }
@@ -62,14 +55,12 @@ pub async fn persist_candles(
 ) -> anyhow::Result<()> {
     let client = pool.get().await.unwrap();
     loop {
-        // match client.ping().await {
-        //     Ok(_) => {
         match candles_receiver.try_recv() {
             Ok(candles) => {
                 if candles.is_empty() {
                     continue;
                 }
-                // print!("writing: {:?} candles to DB\n", candles.len());
+                debug!("writing: {:?} candles to DB\n", candles.len());
                 let upsert_statement = build_candles_upsert_statement(candles);
                 client
                     .execute(&upsert_statement, &[])
@@ -82,12 +73,6 @@ pub async fn persist_candles(
                 panic!("Candles sender must stay alive")
             }
         };
-        // }
-        // Err(_) => {
-        //     println!("Candle ping failed");
-        //     break;
-        // }
-        // };
     }
 }
 

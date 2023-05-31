@@ -1,3 +1,4 @@
+use log::warn;
 use solana_client::client_error::Result as ClientResult;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{
@@ -37,7 +38,8 @@ pub fn parse_trades_from_openbook_txns(
                     }
                 }
             }
-            Err(_) => {
+            Err(e) => {
+                warn!("rpc error in get_transaction {}", e);
                 METRIC_RPC_ERRORS_TOTAL
                     .with_label_values(&["getTransaction"])
                     .inc();
