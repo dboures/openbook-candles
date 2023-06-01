@@ -3,7 +3,7 @@ use tokio_postgres::Row;
 
 use super::resolution::Resolution;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Candle {
     pub market_name: String,
     pub start_time: DateTime<Utc>,
