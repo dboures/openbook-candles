@@ -30,12 +30,11 @@ pub async fn scrape(
         scrape_transactions(
             &rpc_client,
             before_slot,
-            Some(150),
+            Some(1000),
             fill_sender,
             target_markets,
         )
         .await;
-        tokio::time::sleep(WaitDuration::from_millis(250)).await;
     }
 }
 
