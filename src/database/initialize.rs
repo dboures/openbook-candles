@@ -87,7 +87,7 @@ pub async fn create_candles_table(pool: &Pool) -> anyhow::Result<()> {
     client
         .execute(
             "CREATE TABLE IF NOT EXISTS candles (
-            id serial,
+            id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             market_name text,
             start_time timestamptz,
             end_time timestamptz,
