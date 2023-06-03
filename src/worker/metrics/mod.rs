@@ -36,12 +36,6 @@ lazy_static! {
         METRIC_REGISTRY
     )
     .unwrap();
-    pub static ref METRIC_CANDLES_QUEUE_LENGTH: IntGauge = register_int_gauge_with_registry!(
-        "candles_queue_length",
-        "Current length of the candles write queue",
-        METRIC_REGISTRY
-    )
-    .unwrap();
     pub static ref METRIC_RPC_ERRORS_TOTAL: IntCounterVec =
         register_int_counter_vec_with_registry!(
             "rpc_errors_total",

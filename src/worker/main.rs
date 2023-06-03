@@ -1,17 +1,15 @@
 use log::{error, info};
-use openbook_candles::structs::candle::Candle;
 use openbook_candles::structs::markets::{fetch_market_infos, load_markets};
 use openbook_candles::structs::openbook::OpenBookFillEvent;
 use openbook_candles::utils::Config;
 use openbook_candles::worker::metrics::{
-    serve_metrics, METRIC_CANDLES_QUEUE_LENGTH, METRIC_DB_POOL_AVAILABLE, METRIC_DB_POOL_SIZE,
-    METRIC_FILLS_QUEUE_LENGTH,
+    serve_metrics, METRIC_DB_POOL_AVAILABLE, METRIC_DB_POOL_SIZE, METRIC_FILLS_QUEUE_LENGTH,
 };
 use openbook_candles::worker::trade_fetching::scrape::scrape;
 use openbook_candles::{
     database::{
         initialize::{connect_to_database, setup_database},
-        insert::{persist_candles, persist_fill_events},
+        insert::{persist_fill_events},
     },
     worker::candle_batching::batch_for_market,
 };
@@ -34,7 +32,6 @@ async fn main() -> anyhow::Result<()> {
         rpc_url: rpc_url.clone(),
     };
 
-    let candles_queue_max_size = 10000;
     let fills_queue_max_size = 10000;
 
     let markets = load_markets(path_to_markets_json);
@@ -64,31 +61,16 @@ async fn main() -> anyhow::Result<()> {
         }
     }));
 
-    let (candle_sender, mut candle_receiver) = mpsc::channel::<Vec<Candle>>(candles_queue_max_size);
-
     for market in market_infos.into_iter() {
-        let sender = candle_sender.clone();
         let batch_pool = pool.clone();
         handles.push(tokio::spawn(async move {
-            batch_for_market(&batch_pool, &sender, &market)
-                .await
-                .unwrap();
+            batch_for_market(&batch_pool, &market).await.unwrap();
             error!("batching halted for market {}", &market.name);
         }));
     }
 
-    let persist_pool = pool.clone();
-    handles.push(tokio::spawn(async move {
-        loop {
-            persist_candles(persist_pool.clone(), &mut candle_receiver)
-                .await
-                .unwrap();
-        }
-    }));
-
     let monitor_pool = pool.clone();
     let monitor_fill_channel = fill_sender.clone();
-    let monitor_candle_channel = candle_sender.clone();
     handles.push(tokio::spawn(async move {
         // TODO: maybe break this out into a new function
         loop {
@@ -96,8 +78,6 @@ async fn main() -> anyhow::Result<()> {
             METRIC_DB_POOL_AVAILABLE.set(pool_status.available as i64);
             METRIC_DB_POOL_SIZE.set(pool_status.size as i64);
 
-            METRIC_CANDLES_QUEUE_LENGTH
-                .set((candles_queue_max_size - monitor_candle_channel.capacity()) as i64);
             METRIC_FILLS_QUEUE_LENGTH
                 .set((fills_queue_max_size - monitor_fill_channel.capacity()) as i64);
 
