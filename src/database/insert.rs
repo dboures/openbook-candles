@@ -1,4 +1,5 @@
 use deadpool_postgres::Pool;
+use log::debug;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
@@ -14,7 +15,6 @@ pub async fn persist_fill_events(
     pool: &Pool,
     fill_receiver: &mut Receiver<OpenBookFillEvent>,
 ) -> anyhow::Result<()> {
-    let client = pool.get().await?;
     loop {
         let mut write_batch = HashMap::new();
         while write_batch.len() < 10 {
@@ -36,58 +36,15 @@ pub async fn persist_fill_events(
         }
 
         if !write_batch.is_empty() {
-            // print!("writing: {:?} events to DB\n", write_batch.len());
-
-            // match conn.ping().await {
-            //     Ok(_) => {
+            debug!("writing: {:?} events to DB\n", write_batch.len());
             let upsert_statement = build_fills_upsert_statement(write_batch);
+            let client = pool.get().await?;
             client
                 .execute(&upsert_statement, &[])
                 .await
                 .map_err_anyhow()
                 .unwrap();
-            //     }
-            //     Err(_) => {
-            //         println!("Fills ping failed");
-            //         break;
-            //     }
-            // }
         }
-    }
-}
-
-pub async fn persist_candles(
-    pool: Pool,
-    candles_receiver: &mut Receiver<Vec<Candle>>,
-) -> anyhow::Result<()> {
-    let client = pool.get().await.unwrap();
-    loop {
-        // match client.ping().await {
-        //     Ok(_) => {
-        match candles_receiver.try_recv() {
-            Ok(candles) => {
-                if candles.is_empty() {
-                    continue;
-                }
-                // print!("writing: {:?} candles to DB\n", candles.len());
-                let upsert_statement = build_candles_upsert_statement(candles);
-                client
-                    .execute(&upsert_statement, &[])
-                    .await
-                    .map_err_anyhow()
-                    .unwrap();
-            }
-            Err(TryRecvError::Empty) => continue,
-            Err(TryRecvError::Disconnected) => {
-                panic!("Candles sender must stay alive")
-            }
-        };
-        // }
-        // Err(_) => {
-        //     println!("Candle ping failed");
-        //     break;
-        // }
-        // };
     }
 }
 
@@ -126,7 +83,7 @@ fn build_fills_upsert_statement(events: HashMap<OpenBookFillEvent, u8>) -> Strin
     stmt
 }
 
-pub fn build_candles_upsert_statement(candles: Vec<Candle>) -> String {
+pub fn build_candles_upsert_statement(candles: &Vec<Candle>) -> String {
     let mut stmt = String::from("INSERT INTO candles (market_name, start_time, end_time, resolution, open, close, high, low, volume, complete) VALUES");
     for (idx, candle) in candles.iter().enumerate() {
         let val_str = format!(

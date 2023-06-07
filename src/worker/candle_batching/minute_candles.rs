@@ -2,6 +2,7 @@ use std::cmp::min;
 
 use chrono::{DateTime, Duration, DurationRound, Utc};
 use deadpool_postgres::Pool;
+use log::debug;
 
 use crate::{
     database::fetch::{fetch_earliest_fill, fetch_fills_from, fetch_latest_finished_candle},
@@ -24,9 +25,10 @@ pub async fn batch_1m_candles(pool: &Pool, market: &MarketInfo) -> anyhow::Resul
             let start_time = candle.end_time;
             let end_time = min(
                 start_time + day(),
-                Utc::now().duration_trunc(Duration::minutes(1))?,
+                (Utc::now() + Duration::minutes(1)).duration_trunc(Duration::minutes(1))?,
             );
             let mut fills = fetch_fills_from(pool, market_address, start_time, end_time).await?;
+
             let candles = combine_fills_into_1m_candles(
                 &mut fills,
                 market,
@@ -40,7 +42,7 @@ pub async fn batch_1m_candles(pool: &Pool, market: &MarketInfo) -> anyhow::Resul
             let earliest_fill = fetch_earliest_fill(pool, market_address).await?;
 
             if earliest_fill.is_none() {
-                println!("No fills found for: {:?}", market_name);
+                debug!("No fills found for: {:?}", market_name);
                 return Ok(Vec::new());
             }
 
@@ -98,7 +100,6 @@ fn combine_fills_into_1m_candles(
 
         while matches!(fills_iter.peek(), Some(f) if f.time < end_time) {
             let fill = fills_iter.next().unwrap();
-
             let (price, volume) =
                 calculate_fill_price_and_size(*fill, market.base_decimals, market.quote_decimals);
 
@@ -112,8 +113,8 @@ fn combine_fills_into_1m_candles(
 
         candles[i].start_time = start_time;
         candles[i].end_time = end_time;
-        candles[i].complete = matches!(fills_iter.peek(), Some(f) if f.time > end_time);
-
+        candles[i].complete = matches!(fills_iter.peek(), Some(f) if f.time > end_time)
+            || end_time < Utc::now() - Duration::minutes(10);
         start_time = end_time;
         end_time += Duration::minutes(1);
     }
@@ -132,7 +133,7 @@ pub async fn backfill_batch_1m_candles(
 
     let earliest_fill = fetch_earliest_fill(pool, &market.address).await?;
     if earliest_fill.is_none() {
-        println!("No fills found for: {:?}", &market_name);
+        debug!("No fills found for: {:?}", &market_name);
         return Ok(candles);
     }
 

@@ -36,6 +36,7 @@ pub async fn connect_to_database() -> anyhow::Result<Pool> {
         MakeTlsConnector::new(
             TlsConnector::builder()
                 .add_root_certificate(Certificate::from_pem(&ca_cert)?)
+                // TODO: make this configurable
                 .identity(Identity::from_pkcs12(&client_key, "pass")?)
                 .danger_accept_invalid_certs(false)
                 .build()?,
@@ -86,7 +87,7 @@ pub async fn create_candles_table(pool: &Pool) -> anyhow::Result<()> {
     client
         .execute(
             "CREATE TABLE IF NOT EXISTS candles (
-            id serial,
+            id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             market_name text,
             start_time timestamptz,
             end_time timestamptz,

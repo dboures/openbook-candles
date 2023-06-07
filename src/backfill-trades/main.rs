@@ -35,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
     let market_infos = fetch_market_infos(&config, markets.clone()).await?;
     let mut target_markets = HashMap::new();
     for m in market_infos.clone() {
-        target_markets.insert(Pubkey::from_str(&m.address)?, 0);
+        target_markets.insert(Pubkey::from_str(&m.address)?, m.name);
     }
     println!("{:?}", target_markets);
 
@@ -57,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
 pub async fn backfill(
     rpc_url: String,
     fill_sender: &Sender<OpenBookFillEvent>,
-    target_markets: &HashMap<Pubkey, u8>,
+    target_markets: &HashMap<Pubkey, String>,
 ) -> anyhow::Result<()> {
     println!("backfill started");
     let mut before_sig: Option<Signature> = None;
@@ -145,7 +145,7 @@ pub async fn get_transactions(
     rpc_client: &RpcClient,
     mut sigs: Vec<RpcConfirmedTransactionStatusWithSignature>,
     fill_sender: &Sender<OpenBookFillEvent>,
-    target_markets: &HashMap<Pubkey, u8>,
+    target_markets: &HashMap<Pubkey, String>,
 ) {
     sigs.retain(|sig| sig.err.is_none());
     if sigs.last().is_none() {

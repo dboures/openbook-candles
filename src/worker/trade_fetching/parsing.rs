@@ -1,3 +1,4 @@
+use log::warn;
 use solana_client::client_error::Result as ClientResult;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status::{
@@ -5,13 +6,16 @@ use solana_transaction_status::{
 };
 use std::{collections::HashMap, io::Error};
 
-use crate::structs::openbook::{OpenBookFillEvent, OpenBookFillEventRaw};
+use crate::{
+    structs::openbook::{OpenBookFillEvent, OpenBookFillEventRaw},
+    worker::metrics::METRIC_RPC_ERRORS_TOTAL,
+};
 
 const PROGRAM_DATA: &str = "Program data: ";
 
 pub fn parse_trades_from_openbook_txns(
     txns: &mut Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>,
-    target_markets: &HashMap<Pubkey, u8>,
+    target_markets: &HashMap<Pubkey, String>,
 ) -> Vec<OpenBookFillEvent> {
     let mut fills_vector = Vec::<OpenBookFillEvent>::new();
     for txn in txns.iter_mut() {
@@ -34,7 +38,12 @@ pub fn parse_trades_from_openbook_txns(
                     }
                 }
             }
-            Err(_) => {}
+            Err(e) => {
+                warn!("rpc error in get_transaction {}", e);
+                METRIC_RPC_ERRORS_TOTAL
+                    .with_label_values(&["getTransaction"])
+                    .inc();
+            }
         }
     }
     fills_vector
@@ -42,7 +51,7 @@ pub fn parse_trades_from_openbook_txns(
 
 fn parse_openbook_fills_from_logs(
     logs: &Vec<String>,
-    target_markets: &HashMap<Pubkey, u8>,
+    target_markets: &HashMap<Pubkey, String>,
     block_time: i64,
 ) -> Option<Vec<OpenBookFillEvent>> {
     let mut fills_vector = Vec::<OpenBookFillEvent>::new();

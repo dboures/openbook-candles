@@ -1,12 +1,7 @@
-
-
 use deadpool_postgres::Object;
 
 use openbook_candles::{
-    database::{
-        initialize::connect_to_database,
-        insert::{build_candles_upsert_statement},
-    },
+    database::{initialize::connect_to_database, insert::build_candles_upsert_statement},
     structs::{
         candle::Candle,
         markets::{fetch_market_infos, load_markets},
@@ -18,9 +13,8 @@ use openbook_candles::{
         minute_candles::backfill_batch_1m_candles,
     },
 };
-use std::{env};
+use std::env;
 use strum::IntoEnumIterator;
-
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> anyhow::Result<()> {

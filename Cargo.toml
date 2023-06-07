@@ -62,9 +62,12 @@ serum_dex = { version = "0.5.10", git = "https://github.com/openbook-dex/program
 anchor-lang = ">=0.25.0"
 
 actix-web = "4"
+actix-web-prom = { version = "0.6.0", git = "https://github.com/riordanp/actix-web-prom.git", branch = "exclude-paths" }
 
 arrayref = "0.3.6"
 bytemuck = "1.12.3"
 num_enum = "0.6.1"
 
 config = "0.13.1"
+prometheus = "0.13.3"
+lazy_static = "1.4.0"
