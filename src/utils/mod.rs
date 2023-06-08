@@ -1,8 +1,12 @@
+use anchor_lang::prelude::Pubkey;
 use chrono::{NaiveDateTime, Utc};
 use deadpool_postgres::Pool;
 use serde_derive::Deserialize;
+use solana_sdk::pubkey;
 
 use crate::structs::markets::MarketInfo;
+
+pub const OPENBOOK_KEY: Pubkey = pubkey!("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX");
 
 pub trait AnyhowWrap {
     type Value;

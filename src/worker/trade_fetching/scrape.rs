@@ -11,7 +11,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::{
     structs::openbook::OpenBookFillEvent,
-    utils::Config,
+    utils::{Config, OPENBOOK_KEY},
     worker::metrics::{METRIC_FILLS_TOTAL, METRIC_RPC_ERRORS_TOTAL},
 };
 
@@ -55,7 +55,7 @@ pub async fn scrape_transactions(
 
     let mut sigs = match rpc_client
         .get_signatures_for_address_with_config(
-            &Pubkey::from_str("srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX").unwrap(),
+            &OPENBOOK_KEY,
             rpc_config,
         )
         .await

@@ -6,3 +6,4 @@ pub mod resolution;
 pub mod slab;
 pub mod trader;
 pub mod tradingview;
+pub mod transaction;

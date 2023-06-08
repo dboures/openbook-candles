@@ -55,7 +55,7 @@ fn parse_openbook_fills_from_logs(
     block_time: i64,
 ) -> Option<Vec<OpenBookFillEvent>> {
     let mut fills_vector = Vec::<OpenBookFillEvent>::new();
-    for l in logs {
+    for (idx, l) in logs.iter().enumerate() {
         match l.strip_prefix(PROGRAM_DATA) {
             Some(log) => {
                 let borsh_bytes = match anchor_lang::__private::base64::decode(log) {
@@ -68,7 +68,7 @@ fn parse_openbook_fills_from_logs(
 
                 match event {
                     Ok(e) => {
-                        let fill_event = e.with_time(block_time);
+                        let fill_event = e.into_event(block_time, idx);
                         if target_markets.contains_key(&fill_event.market) {
                             fills_vector.push(fill_event);
                         }
