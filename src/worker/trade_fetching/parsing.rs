@@ -15,7 +15,7 @@ const PROGRAM_DATA: &str = "Program data: ";
 
 pub fn parse_trades_from_openbook_txns(
     txns: &mut Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>,
-    sig_strings: &Vec<String>, 
+    sig_strings: &Vec<String>,
     target_markets: &HashMap<Pubkey, String>,
 ) -> Vec<OpenBookFillEvent> {
     let mut fills_vector = Vec::<OpenBookFillEvent>::new();

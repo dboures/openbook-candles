@@ -22,7 +22,12 @@ pub struct OpenBookFillEventRaw {
     pub referrer_rebate: Option<u64>,
 }
 impl OpenBookFillEventRaw {
-    pub fn into_event(self, signature: String, block_time: i64, log_index: usize) -> OpenBookFillEvent {
+    pub fn into_event(
+        self,
+        signature: String,
+        block_time: i64,
+        log_index: usize,
+    ) -> OpenBookFillEvent {
         OpenBookFillEvent {
             signature,
             market: self.market,
@@ -62,7 +67,7 @@ pub struct OpenBookFillEvent {
     pub client_order_id: Option<u64>,
     pub referrer_rebate: Option<u64>,
     pub block_time: i64,
-    pub log_index: usize
+    pub log_index: usize,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

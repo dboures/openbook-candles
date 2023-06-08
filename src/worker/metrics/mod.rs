@@ -2,8 +2,8 @@ use actix_web::{dev::Server, http::StatusCode, App, HttpServer};
 use actix_web_prom::PrometheusMetricsBuilder;
 use lazy_static::lazy_static;
 use prometheus::{
-    register_int_counter_vec_with_registry, register_int_gauge_with_registry, IntCounterVec,
-    IntGauge, Registry,
+    register_int_counter_vec_with_registry, register_int_counter_with_registry,
+    register_int_gauge_with_registry, IntCounter, IntCounterVec, IntGauge, Registry,
 };
 
 lazy_static! {
@@ -30,9 +30,9 @@ lazy_static! {
         METRIC_REGISTRY
     )
     .unwrap();
-    pub static ref METRIC_FILLS_QUEUE_LENGTH: IntGauge = register_int_gauge_with_registry!(
-        "fills_queue_length",
-        "Current length of the fills write queue",
+    pub static ref METRIC_TRANSACTIONS_TOTAL: IntCounter = register_int_counter_with_registry!(
+        "transactions_total",
+        "Total number of transaction signatures scraped",
         METRIC_REGISTRY
     )
     .unwrap();

@@ -1,28 +1,24 @@
 use anchor_lang::prelude::Pubkey;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use deadpool_postgres::Pool;
-use futures::future::join_all;
 use log::debug;
 use openbook_candles::{
     database::{
-        fetch::fetch_worker_transactions,
         initialize::{connect_to_database, setup_database},
-        insert::{add_fills_atomically, build_transactions_insert_statement},
+        insert::build_transactions_insert_statement,
     },
     structs::{
         markets::{fetch_market_infos, load_markets},
         transaction::{PgTransaction, NUM_TRANSACTION_PARTITIONS},
     },
     utils::{AnyhowWrap, Config, OPENBOOK_KEY},
-    worker::trade_fetching::parsing::parse_trades_from_openbook_txns,
+    worker::trade_fetching::scrape::scrape_fills,
 };
 use solana_client::{
     nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
-    rpc_config::RpcTransactionConfig
 };
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Signature};
-use solana_transaction_status::UiTransactionEncoding;
-use std::{collections::HashMap, env, str::FromStr,time::Duration as WaitDuration };
+use std::{collections::HashMap, env, str::FromStr};
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> anyhow::Result<()> {
@@ -54,15 +50,18 @@ async fn main() -> anyhow::Result<()> {
     let rpc_clone = rpc_url.clone();
     let pool_clone = pool.clone();
     handles.push(tokio::spawn(async move {
-        fetch_signatures(rpc_clone, &pool_clone, num_days).await.unwrap();
+        fetch_signatures(rpc_clone, &pool_clone, num_days)
+            .await
+            .unwrap();
     }));
 
+    // Low priority improvement: batch fills into 1000's per worker
     for id in 0..NUM_TRANSACTION_PARTITIONS {
         let rpc_clone = rpc_url.clone();
         let pool_clone = pool.clone();
         let markets_clone = target_markets.clone();
         handles.push(tokio::spawn(async move {
-            backfill(id as i32, rpc_clone, &pool_clone, &markets_clone)
+            scrape_fills(id as i32, rpc_clone, &pool_clone, &markets_clone)
                 .await
                 .unwrap();
         }));
@@ -89,10 +88,7 @@ pub async fn fetch_signatures(rpc_url: String, pool: &Pool, num_days: i64) -> an
         };
 
         let sigs = match rpc_client
-            .get_signatures_for_address_with_config(
-                &OPENBOOK_KEY,
-                rpc_config,
-            )
+            .get_signatures_for_address_with_config(&OPENBOOK_KEY, rpc_config)
             .await
         {
             Ok(sigs) => sigs,
@@ -114,15 +110,15 @@ pub async fn fetch_signatures(rpc_url: String, pool: &Pool, num_days: i64) -> an
             .collect::<Vec<PgTransaction>>();
 
         if transactions.is_empty() {
-            println!("No transactions found, trying again");   
+            println!("No transactions found, trying again");
         }
         debug!("writing: {:?} txns to DB\n", transactions.len());
         let upsert_statement = build_transactions_insert_statement(transactions);
-            let client = pool.get().await?;
-            client
-                .execute(&upsert_statement, &[])
-                .await
-                .map_err_anyhow()?;
+        let client = pool.get().await?;
+        client
+            .execute(&upsert_statement, &[])
+            .await
+            .map_err_anyhow()?;
 
         now_time = last_time;
         before_sig = Some(Signature::from_str(&last_signature)?);
@@ -133,59 +129,6 @@ pub async fn fetch_signatures(rpc_url: String, pool: &Pool, num_days: i64) -> an
             time_left.num_days()
         );
     }
-    Ok(())
-}
-
-pub async fn backfill(
-    worker_id: i32,
-    rpc_url: String,
-    pool: &Pool,
-    target_markets: &HashMap<Pubkey, String>,
-) -> anyhow::Result<()> {
-    println!("Worker {} up \n", worker_id);
-    let rpc_client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
-
-    loop {
-        let transactions = fetch_worker_transactions(worker_id, pool).await?;
-        if transactions.len() == 0 {
-            println!("No signatures found by worker {}", worker_id);
-            tokio::time::sleep(WaitDuration::from_secs(1)).await;
-            continue;
-        };
-
-        // for each signature, fetch the transaction
-        let txn_config = RpcTransactionConfig {
-            encoding: Some(UiTransactionEncoding::Json),
-            commitment: Some(CommitmentConfig::confirmed()),
-            max_supported_transaction_version: Some(0),
-        };
-
-        let sig_strings = transactions
-            .iter()
-            .map(|t| t.signature.clone())
-            .collect::<Vec<String>>();
-
-        let signatures: Vec<_> = transactions
-            .into_iter()
-            .map(|t| t.signature.parse::<Signature>().unwrap())
-            .collect();
-
-        let txn_futs: Vec<_> = signatures
-            .iter()
-            .map(|s| rpc_client.get_transaction_with_config(s, txn_config))
-            .collect();
-
-        let mut txns = join_all(txn_futs).await;
-
-        // TODO: batch fills into groups of 1000
-        let fills = parse_trades_from_openbook_txns(&mut txns, &sig_strings, target_markets);
-
-        // Write any fills to the database, and mark the transactions as processed
-        add_fills_atomically(pool, worker_id, fills, sig_strings).await?;
-    }
-
-    // TODO: graceful shutdown
-    // println!("Worker {} down \n", worker_id);
     Ok(())
 }
 

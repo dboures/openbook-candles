@@ -1,8 +1,6 @@
 use deadpool_postgres::Pool;
 use log::debug;
-use std::{
-    collections::{HashMap}
-};
+use std::collections::HashMap;
 use tokio::sync::mpsc::{error::TryRecvError, Receiver};
 
 use crate::{
@@ -10,7 +8,7 @@ use crate::{
     utils::{to_timestampz, AnyhowWrap},
 };
 
-pub async fn add_fills_atomically(
+pub async fn insert_fills_atomically(
     pool: &Pool,
     worker_id: i32,
     fills: Vec<OpenBookFillEvent>,
