@@ -89,6 +89,11 @@ pub async fn scrape_transactions(
         max_supported_transaction_version: Some(0),
     };
 
+    let sig_strings = sigs
+        .iter()
+        .map(|t| t.signature.clone())
+        .collect::<Vec<String>>();
+
     let signatures: Vec<_> = sigs
         .into_iter()
         .map(|sig| sig.signature.parse::<Signature>().unwrap())
@@ -101,7 +106,7 @@ pub async fn scrape_transactions(
 
     let mut txns = join_all(txn_futs).await;
 
-    let fills = parse_trades_from_openbook_txns(&mut txns, target_markets);
+    let fills = parse_trades_from_openbook_txns(&mut txns, &sig_strings, target_markets);
     if !fills.is_empty() {
         for fill in fills.into_iter() {
             let market_name = target_markets.get(&fill.market).unwrap();

@@ -127,7 +127,7 @@ pub async fn create_fills_table(pool: &Pool) -> anyhow::Result<()> {
     client
         .execute(
             "CREATE TABLE IF NOT EXISTS fills (
-            id numeric PRIMARY KEY,
+            signature text not null,
             time timestamptz not null,
             market text not null,
             open_orders text not null,
@@ -139,15 +139,9 @@ pub async fn create_fills_table(pool: &Pool) -> anyhow::Result<()> {
             native_fee_or_rebate double precision not null,
             fee_tier text not null,
             order_id text not null,
-            log_index int4 not null
+            log_index int4 not null,
+            CONSTRAINT fills_pk PRIMARY KEY (signature, log_index)
         )",
-            &[],
-        )
-        .await?;
-
-    client
-        .execute(
-            "CREATE INDEX IF NOT EXISTS idx_id_market ON fills (id, market)",
             &[],
         )
         .await?;

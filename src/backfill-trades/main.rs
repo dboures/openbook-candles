@@ -177,7 +177,8 @@ pub async fn backfill(
 
         let mut txns = join_all(txn_futs).await;
 
-        let fills = parse_trades_from_openbook_txns(&mut txns, target_markets);
+        // TODO: batch fills into groups of 1000
+        let fills = parse_trades_from_openbook_txns(&mut txns, &sig_strings, target_markets);
 
         // Write any fills to the database, and mark the transactions as processed
         add_fills_atomically(pool, worker_id, fills, sig_strings).await?;

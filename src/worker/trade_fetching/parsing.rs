@@ -15,10 +15,11 @@ const PROGRAM_DATA: &str = "Program data: ";
 
 pub fn parse_trades_from_openbook_txns(
     txns: &mut Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>,
+    sig_strings: &Vec<String>, 
     target_markets: &HashMap<Pubkey, String>,
 ) -> Vec<OpenBookFillEvent> {
     let mut fills_vector = Vec::<OpenBookFillEvent>::new();
-    for txn in txns.iter_mut() {
+    for (idx, txn) in txns.iter_mut().enumerate() {
         match txn {
             Ok(t) => {
                 if let Some(m) = &t.transaction.meta {
@@ -27,6 +28,7 @@ pub fn parse_trades_from_openbook_txns(
                             match parse_openbook_fills_from_logs(
                                 logs,
                                 target_markets,
+                                sig_strings[idx].clone(),
                                 t.block_time.unwrap(),
                             ) {
                                 Some(mut events) => fills_vector.append(&mut events),
@@ -52,6 +54,7 @@ pub fn parse_trades_from_openbook_txns(
 fn parse_openbook_fills_from_logs(
     logs: &Vec<String>,
     target_markets: &HashMap<Pubkey, String>,
+    signature: String,
     block_time: i64,
 ) -> Option<Vec<OpenBookFillEvent>> {
     let mut fills_vector = Vec::<OpenBookFillEvent>::new();
@@ -68,7 +71,7 @@ fn parse_openbook_fills_from_logs(
 
                 match event {
                     Ok(e) => {
-                        let fill_event = e.into_event(block_time, idx);
+                        let fill_event = e.into_event(signature.clone(), block_time, idx);
                         if target_markets.contains_key(&fill_event.market) {
                             fills_vector.push(fill_event);
                         }
