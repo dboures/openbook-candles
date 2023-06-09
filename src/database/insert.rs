@@ -1,7 +1,7 @@
 use deadpool_postgres::Pool;
-use log::debug;
-use std::collections::HashMap;
-use tokio::sync::mpsc::{error::TryRecvError, Receiver};
+
+
+
 
 use crate::{
     structs::{candle::Candle, openbook::OpenBookFillEvent, transaction::PgTransaction},
@@ -19,8 +19,8 @@ pub async fn insert_fills_atomically(
     let db_txn = client.build_transaction().start().await?;
 
     // 1. Insert fills
-    if fills.len() > 0 {
-        let fills_statement = build_fills_upsert_statement_not_crazy(fills);
+    if !fills.is_empty() {
+        let fills_statement = build_fills_upsert_statement(fills);
         db_txn
             .execute(&fills_statement, &[])
             .await
@@ -42,78 +42,7 @@ pub async fn insert_fills_atomically(
     Ok(())
 }
 
-pub async fn persist_fill_events(
-    pool: &Pool,
-    fill_receiver: &mut Receiver<OpenBookFillEvent>,
-) -> anyhow::Result<()> {
-    loop {
-        let mut write_batch = HashMap::new();
-        while write_batch.len() < 10 {
-            match fill_receiver.try_recv() {
-                Ok(event) => {
-                    write_batch.entry(event).or_insert(0);
-                }
-                Err(TryRecvError::Empty) => {
-                    if !write_batch.is_empty() {
-                        break;
-                    } else {
-                        continue;
-                    }
-                }
-                Err(TryRecvError::Disconnected) => {
-                    panic!("Fills sender must stay alive")
-                }
-            };
-        }
-
-        if !write_batch.is_empty() {
-            debug!("writing: {:?} events to DB\n", write_batch.len());
-            let upsert_statement = build_fills_upsert_statement(write_batch);
-            let client = pool.get().await?;
-            client
-                .execute(&upsert_statement, &[])
-                .await
-                .map_err_anyhow()
-                .unwrap();
-        }
-    }
-}
-
-#[allow(deprecated)]
-fn build_fills_upsert_statement(events: HashMap<OpenBookFillEvent, u8>) -> String {
-    let mut stmt = String::from("INSERT INTO fills (signature, time, market, open_orders, open_orders_owner, bid, maker, native_qty_paid, native_qty_received, native_fee_or_rebate, fee_tier, order_id, log_index) VALUES");
-    for (idx, event) in events.keys().enumerate() {
-        let val_str = format!(
-            "({}, \'{}\', \'{}\', \'{}\', \'{}\', {}, {}, {}, {}, {}, {}, {}, {})",
-            event.signature,
-            to_timestampz(event.block_time as u64).to_rfc3339(),
-            event.market,
-            event.open_orders,
-            event.open_orders_owner,
-            event.bid,
-            event.maker,
-            event.native_qty_paid,
-            event.native_qty_received,
-            event.native_fee_or_rebate,
-            event.fee_tier,
-            event.order_id,
-            event.log_index,
-        );
-
-        if idx == 0 {
-            stmt = format!("{} {}", &stmt, val_str);
-        } else {
-            stmt = format!("{}, {}", &stmt, val_str);
-        }
-    }
-
-    let handle_conflict = "ON CONFLICT DO NOTHING";
-
-    stmt = format!("{} {}", stmt, handle_conflict);
-    stmt
-}
-
-fn build_fills_upsert_statement_not_crazy(fills: Vec<OpenBookFillEvent>) -> String {
+fn build_fills_upsert_statement(fills: Vec<OpenBookFillEvent>) -> String {
     let mut stmt = String::from("INSERT INTO fills (signature, time, market, open_orders, open_orders_owner, bid, maker, native_qty_paid, native_qty_received, native_fee_or_rebate, fee_tier, order_id, log_index) VALUES");
     for (idx, fill) in fills.iter().enumerate() {
         let val_str = format!(

@@ -102,11 +102,11 @@ pub async fn fetch_signatures(rpc_url: String, pool: &Pool, num_days: i64) -> an
             continue;
         }
         let last = sigs.last().unwrap();
-        let last_time = last.block_time.unwrap().clone();
+        let last_time = last.block_time.unwrap();
         let last_signature = last.signature.clone();
         let transactions = sigs
             .into_iter()
-            .map(|s| PgTransaction::from_rpc_confirmed_transaction(s))
+            .map(PgTransaction::from_rpc_confirmed_transaction)
             .collect::<Vec<PgTransaction>>();
 
         if transactions.is_empty() {

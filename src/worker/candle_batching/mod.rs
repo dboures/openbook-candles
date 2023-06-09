@@ -53,7 +53,7 @@ async fn batch_inner(pool: &Pool, market: &MarketInfo) -> anyhow::Result<()> {
 }
 
 async fn save_candles(pool: &Pool, candles: Vec<Candle>) -> anyhow::Result<()> {
-    if candles.len() == 0 {
+    if candles.is_empty() {
         return Ok(());
     }
     let upsert_statement = build_candles_upsert_statement(&candles);

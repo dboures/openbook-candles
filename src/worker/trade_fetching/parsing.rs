@@ -50,7 +50,7 @@ pub fn parse_trades_from_openbook_txns(
             }
         }
     }
-    sig_strings.retain(|s| !failed_sigs.contains(&s));
+    sig_strings.retain(|s| !failed_sigs.contains(s));
     (fills_vector, sig_strings)
 }
 
