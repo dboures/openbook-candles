@@ -21,7 +21,7 @@ pub async fn batch_for_market(pool: &Pool, market: &MarketInfo) -> anyhow::Resul
         let market_clone = market.clone();
 
         loop {
-            sleep(Duration::milliseconds(2000).to_std()?).await;
+            sleep(Duration::milliseconds(5000).to_std()?).await;
             match batch_inner(pool, &market_clone).await {
                 Ok(_) => {}
                 Err(e) => {
