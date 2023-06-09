@@ -9,19 +9,17 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature:
 use solana_transaction_status::UiTransactionEncoding;
 use std::{collections::HashMap, time::Duration as WaitDuration};
 
-
 use crate::{
     database::{
         fetch::fetch_worker_transactions,
         insert::{build_transactions_insert_statement, insert_fills_atomically},
     },
-    structs::{transaction::PgTransaction},
+    structs::transaction::PgTransaction,
     utils::{AnyhowWrap, OPENBOOK_KEY},
-    worker::metrics::{METRIC_RPC_ERRORS_TOTAL, METRIC_TRANSACTIONS_TOTAL},
+    worker::metrics::{METRIC_FILLS_TOTAL, METRIC_RPC_ERRORS_TOTAL, METRIC_TRANSACTIONS_TOTAL},
 };
 
 use super::parsing::parse_trades_from_openbook_txns;
-
 
 pub async fn scrape_signatures(rpc_url: String, pool: &Pool) -> anyhow::Result<()> {
     let rpc_client = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
@@ -109,9 +107,12 @@ pub async fn scrape_fills(
 
         let mut txns = join_all(txn_futs).await;
 
-        // TODO: reenable total fills metric
-        let (fills, completed_sigs) = parse_trades_from_openbook_txns(&mut txns, sig_strings, target_markets);
-
+        let (fills, completed_sigs) =
+            parse_trades_from_openbook_txns(&mut txns, sig_strings, target_markets);
+        for fill in fills.iter() {
+            let market_name = target_markets.get(&fill.market).unwrap();
+            METRIC_FILLS_TOTAL.with_label_values(&[market_name]).inc();
+        }
         // Write fills to the database, and update properly fetched transactions as processed
         insert_fills_atomically(pool, worker_id, fills, completed_sigs).await?;
     }

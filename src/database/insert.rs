@@ -1,8 +1,5 @@
 use deadpool_postgres::Pool;
 
-
-
-
 use crate::{
     structs::{candle::Candle, openbook::OpenBookFillEvent, transaction::PgTransaction},
     utils::{to_timestampz, AnyhowWrap},
