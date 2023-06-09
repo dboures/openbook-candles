@@ -111,10 +111,10 @@ pub async fn scrape_fills(
         let mut txns = join_all(txn_futs).await;
 
         // TODO: reenable total fills metric
-        let fills = parse_trades_from_openbook_txns(&mut txns, &sig_strings, target_markets);
+        let (fills, completed_sigs) = parse_trades_from_openbook_txns(&mut txns, sig_strings, target_markets);
 
-        // Write any fills to the database, and update the transactions as processed
-        insert_fills_atomically(pool, worker_id, fills, sig_strings).await?;
+        // Write fills to the database, and update properly fetched transactions as processed
+        insert_fills_atomically(pool, worker_id, fills, completed_sigs).await?;
     }
 
     Ok(())

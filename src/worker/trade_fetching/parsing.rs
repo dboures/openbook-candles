@@ -15,10 +15,11 @@ const PROGRAM_DATA: &str = "Program data: ";
 
 pub fn parse_trades_from_openbook_txns(
     txns: &mut Vec<ClientResult<EncodedConfirmedTransactionWithStatusMeta>>,
-    sig_strings: &Vec<String>,
+    mut sig_strings: Vec<String>,
     target_markets: &HashMap<Pubkey, String>,
-) -> Vec<OpenBookFillEvent> {
+) -> (Vec<OpenBookFillEvent>, Vec<String>) {
     let mut fills_vector = Vec::<OpenBookFillEvent>::new();
+    let mut failed_sigs = vec![];
     for (idx, txn) in txns.iter_mut().enumerate() {
         match txn {
             Ok(t) => {
@@ -42,13 +43,15 @@ pub fn parse_trades_from_openbook_txns(
             }
             Err(e) => {
                 warn!("rpc error in get_transaction {}", e);
+                failed_sigs.push(sig_strings[idx].clone());
                 METRIC_RPC_ERRORS_TOTAL
                     .with_label_values(&["getTransaction"])
                     .inc();
             }
         }
     }
-    fills_vector
+    sig_strings.retain(|s| !failed_sigs.contains(&s));
+    (fills_vector, sig_strings)
 }
 
 fn parse_openbook_fills_from_logs(
