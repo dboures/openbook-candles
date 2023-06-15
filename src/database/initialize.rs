@@ -67,8 +67,9 @@ pub async fn connect_to_database() -> anyhow::Result<Pool> {
 
 pub async fn setup_database(pool: &Pool) -> anyhow::Result<()> {
     let candles_table_fut = create_candles_table(pool);
+    let transactions_table_fut = create_transactions_table(pool);
     let fills_table_fut = create_fills_table(pool);
-    let result = tokio::try_join!(candles_table_fut, fills_table_fut);
+    let result = tokio::try_join!(candles_table_fut, transactions_table_fut, fills_table_fut);
     match result {
         Ok(_) => {
             println!("Successfully configured database");
@@ -126,7 +127,7 @@ pub async fn create_fills_table(pool: &Pool) -> anyhow::Result<()> {
     client
         .execute(
             "CREATE TABLE IF NOT EXISTS fills (
-            id numeric PRIMARY KEY,
+            signature text not null,
             time timestamptz not null,
             market text not null,
             open_orders text not null,
@@ -137,15 +138,10 @@ pub async fn create_fills_table(pool: &Pool) -> anyhow::Result<()> {
             native_qty_received double precision not null,
             native_fee_or_rebate double precision not null,
             fee_tier text not null,
-            order_id text not null
+            order_id text not null,
+            log_index int4 not null,
+            CONSTRAINT fills_pk PRIMARY KEY (signature, log_index)
         )",
-            &[],
-        )
-        .await?;
-
-    client
-        .execute(
-            "CREATE INDEX IF NOT EXISTS idx_id_market ON fills (id, market)",
             &[],
         )
         .await?;
@@ -156,5 +152,43 @@ pub async fn create_fills_table(pool: &Pool) -> anyhow::Result<()> {
             &[],
         )
         .await?;
+    Ok(())
+}
+
+pub async fn create_transactions_table(pool: &Pool) -> anyhow::Result<()> {
+    let client = pool.get().await?;
+
+    client
+        .execute(
+            "CREATE TABLE IF NOT EXISTS transactions (
+                signature text NOT NULL,
+                program_pk text NOT NULL,
+                block_datetime timestamptz NOT NULL,
+                slot bigint NOT NULL,
+                err bool NOT NULL,
+                processed bool NOT NULL,
+                worker_partition int4 NOT NULL,
+                CONSTRAINT transactions_pk PRIMARY KEY (signature, worker_partition)
+            ) PARTITION BY LIST (worker_partition);",
+            &[],
+        )
+        .await?;
+
+    client.batch_execute(
+        "CREATE INDEX IF NOT EXISTS transactions_processed_err_idx ON ONLY transactions (signature) WHERE processed IS NOT TRUE and err IS NOT TRUE;
+        CREATE INDEX IF NOT EXISTS transactions_program_pk_idx ON ONLY transactions USING btree (program_pk, slot DESC);
+
+        CREATE TABLE IF NOT EXISTS transactions_0 PARTITION OF transactions  FOR VALUES IN (0);
+        CREATE TABLE IF NOT EXISTS transactions_1 PARTITION OF transactions  FOR VALUES IN (1);
+        CREATE TABLE IF NOT EXISTS transactions_2 PARTITION OF transactions  FOR VALUES IN (2);
+        CREATE TABLE IF NOT EXISTS transactions_3 PARTITION OF transactions  FOR VALUES IN (3);
+        CREATE TABLE IF NOT EXISTS transactions_4 PARTITION OF transactions  FOR VALUES IN (4);
+        CREATE TABLE IF NOT EXISTS transactions_5 PARTITION OF transactions  FOR VALUES IN (5);
+        CREATE TABLE IF NOT EXISTS transactions_6 PARTITION OF transactions  FOR VALUES IN (6);
+        CREATE TABLE IF NOT EXISTS transactions_7 PARTITION OF transactions  FOR VALUES IN (7);
+        CREATE TABLE IF NOT EXISTS transactions_8 PARTITION OF transactions  FOR VALUES IN (8);
+        CREATE TABLE IF NOT EXISTS transactions_9 PARTITION OF transactions  FOR VALUES IN (9);"
+    ).await?;
+
     Ok(())
 }

@@ -53,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn save_candles(candles: Vec<Candle>, client: Object) -> anyhow::Result<()> {
     if !candles.is_empty() {
-        let upsert_statement = build_candles_upsert_statement(candles);
+        let upsert_statement = build_candles_upsert_statement(&candles);
         client
             .execute(&upsert_statement, &[])
             .await

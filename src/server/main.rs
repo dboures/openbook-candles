@@ -55,7 +55,7 @@ async fn main() -> std::io::Result<()> {
         .unwrap();
     // For collecting metrics on the public api, excluding 404s
     let public_metrics = PrometheusMetricsBuilder::new("openbook_candles_server")
-        .registry(registry.clone())
+        .registry(registry)
         .exclude_status(StatusCode::NOT_FOUND)
         .build()
         .unwrap();

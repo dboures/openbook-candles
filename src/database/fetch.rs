@@ -4,6 +4,7 @@ use crate::structs::{
     openbook::PgOpenBookFill,
     resolution::Resolution,
     trader::PgTrader,
+    transaction::PgTransaction,
 };
 use chrono::{DateTime, Utc};
 use deadpool_postgres::{GenericClient, Pool};
@@ -319,4 +320,24 @@ pub async fn fetch_coingecko_24h_high_low(
         .into_iter()
         .map(PgCoinGecko24HighLow::from_row)
         .collect())
+}
+
+/// Fetches unprocessed, non-error transactions for the specified worker partition.
+/// Pulls at most 50 transactions at a time.
+pub async fn fetch_worker_transactions(
+    worker_id: i32,
+    pool: &Pool,
+) -> anyhow::Result<Vec<PgTransaction>> {
+    let client = pool.get().await?;
+
+    let stmt = r#"SELECT signature, program_pk, block_datetime, slot, err, "processed", worker_partition
+            FROM transactions
+            where worker_partition = $1
+            and err = false 
+            and processed = false
+            LIMIT 50"#;
+
+    let rows = client.query(stmt, &[&worker_id]).await?;
+
+    Ok(rows.into_iter().map(PgTransaction::from_row).collect())
 }
